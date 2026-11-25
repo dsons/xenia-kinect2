@@ -213,7 +213,12 @@ def import_vs_environment():
 
     vsdevcmd_path = os.path.join(install_path, "Common7", "Tools", "VsDevCmd.bat")
     if os.access(vsdevcmd_path, os.X_OK):
-        env_tool_args = [vsdevcmd_path, "-arch=amd64", "-host_arch=amd64", "&&", "set"]
+        env_tool_args = [vsdevcmd_path, "-arch=amd64", "-host_arch=amd64"]
+        # XE_VCVARS_VER pins the MSVC toolset (e.g. 14.44) when an older
+        # side-by-side toolset is the v143 default.
+        if os.environ.get("XE_VCVARS_VER"):
+            env_tool_args.append(f"-vcvars_ver={os.environ['XE_VCVARS_VER']}")
+        env_tool_args += ["&&", "set"]
     else:
         vcvars_path = os.path.join(install_path, "VC", "Auxiliary", "Build", "vcvarsall.bat")
         env_tool_args = [vcvars_path, "x64", "&&", "set"]
