@@ -394,9 +394,11 @@ constexpr VulkanTextureCache::HostFormatPair
          {kLoadShaderIndexUnknown},
          xenos::XE_GPU_TEXTURE_SWIZZLE_RGGG},
         // k_DXT3A_AS_1_1_1_1
+        // Red is bit 0 of each nibble (Kinect Adventures reads the masks raw);
+        // the load shader puts bit 0 in alpha and bit 3 in red.
         {{kLoadShaderIndexDXT3AAs1111ToARGB4, VK_FORMAT_B4G4R4A4_UNORM_PACK16},
          {kLoadShaderIndexUnknown},
-         xenos::XE_GPU_TEXTURE_SWIZZLE_RGBA},
+         xenos::XE_GPU_TEXTURE_SWIZZLE_ABGR},
         // k_8_8_8_8_GAMMA_EDRAM
         // Not usable as a texture.
         {{kLoadShaderIndexUnknown},

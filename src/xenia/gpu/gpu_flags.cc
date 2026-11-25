@@ -9,6 +9,8 @@
 
 #include "xenia/gpu/gpu_flags.h"
 
+#include <algorithm>
+
 DEFINE_path(trace_gpu_prefix, "scratch/gpu/",
             "Prefix path for GPU trace files.", "GPU.Debug");
 DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU.Debug");
@@ -112,6 +114,14 @@ DEFINE_bool(
     "this requires depthClamp support.",
     "GPU");
 
+DEFINE_int32(
+    texture_1d_wide_max_rows, 32,
+    "Rows of 8192 texels materialized for a 1D texture wider than 8192 "
+    "(1 to 2048). Texels past this many rows read as the last row. Kinect "
+    "titles need 96: the NUI skeleton tracker keeps each decision tree in a "
+    "786432-texel 1D texture.",
+    "GPU");
+
 DEFINE_bool(
     mulsc_round_toward_zero, false,
     "Round mulsc products toward zero instead of to nearest even. This fixes "
@@ -119,3 +129,13 @@ DEFINE_bool(
     "This rounding behavior hasn't been confirmed on real hardware, so it's "
     "disabled by default.",
     "GPU");
+
+namespace xe {
+namespace gpu {
+
+uint32_t GetTexture1DWideMaxRows() {
+  return uint32_t(std::clamp(cvars::texture_1d_wide_max_rows, 1, 2048));
+}
+
+}  // namespace gpu
+}  // namespace xe

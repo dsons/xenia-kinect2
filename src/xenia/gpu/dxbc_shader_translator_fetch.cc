@@ -1396,7 +1396,7 @@ void DxbcShaderTranslator::ProcessTextureFetchInstruction(
                        dxbc::Src::R(coord_and_sampler_temp, dxbc::Src::kZZZZ));
           a_.OpMin(dxbc::Dest::R(coord_and_sampler_temp, 0b0100),
                    dxbc::Src::R(coord_and_sampler_temp, dxbc::Src::kZZZZ),
-                   dxbc::Src::LF(float(xenos::kTexture1DWideMaxRows)));
+                   dxbc::Src::LF(float(GetTexture1DWideMaxRows())));
           // coord.y = (row_index + 0.5) / num_rows - sample at the center of
           // the row, not its edge. At the edge, linear filtering would blend
           // 50/50 with the previous row (texels 8192 apart), and even point

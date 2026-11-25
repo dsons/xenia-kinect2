@@ -561,6 +561,15 @@ bool COMMAND_PROCESSOR::ExecutePacketType3(uint32_t packet) XE_RESTRICT {
         break;
       }
 
+      case PM4_WAIT_IB_PFD_COMPLETE: {
+        // Waits for an IB_PFD packet's base/size writes. Indirect buffers
+        // are read synchronously here, so there is nothing to wait for.
+        // Kinect Adventures' NUI emits it with one dword.
+        reader_.AdvanceRead(count * sizeof(uint32_t));
+        result = true;
+        break;
+      }
+
       default:
         return COMMAND_PROCESSOR::HitUnimplementedOpcode(opcode, count);
     }
@@ -603,6 +612,13 @@ XE_COLD
 bool COMMAND_PROCESSOR::HitUnimplementedOpcode(uint32_t opcode,
                                                uint32_t count) XE_RESTRICT {
   XELOGGPU("Unimplemented GPU OPCODE: 0x{:02X}\t\tCOUNT: {}\n", opcode, count);
+  {
+    static uint64_t reported[4] = {};
+    if (!(reported[(opcode >> 6) & 3] & (1ull << (opcode & 63)))) {
+      reported[(opcode >> 6) & 3] |= 1ull << (opcode & 63);
+      XELOGW("Unimplemented GPU opcode 0x{:02X} (count {})", opcode, count);
+    }
+  }
   assert_always();
   reader_.AdvanceRead(count * sizeof(uint32_t));
   trace_writer_.WritePacketEnd();

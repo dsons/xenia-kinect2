@@ -526,10 +526,12 @@ class D3D12TextureCache final : public TextureCache {
        DXGI_FORMAT_UNKNOWN, kLoadShaderIndexUnknown, false, DXGI_FORMAT_UNKNOWN,
        kLoadShaderIndexUnknown, xenos::XE_GPU_TEXTURE_SWIZZLE_RGGG},
       // k_DXT3A_AS_1_1_1_1
+      // Red is bit 0 of each nibble (Kinect Adventures reads the masks raw);
+      // the load shader puts bit 0 in alpha and bit 3 in red.
       {DXGI_FORMAT_B4G4R4A4_UNORM, DXGI_FORMAT_B4G4R4A4_UNORM,
        kLoadShaderIndexDXT3AAs1111ToBGRA4, DXGI_FORMAT_UNKNOWN,
        kLoadShaderIndexUnknown, false, DXGI_FORMAT_UNKNOWN,
-       kLoadShaderIndexUnknown, xenos::XE_GPU_TEXTURE_SWIZZLE_RGBA},
+       kLoadShaderIndexUnknown, xenos::XE_GPU_TEXTURE_SWIZZLE_ABGR},
       // k_8_8_8_8_GAMMA_EDRAM
       // Not usable as a texture.
       {DXGI_FORMAT_UNKNOWN, DXGI_FORMAT_UNKNOWN, kLoadShaderIndexUnknown,

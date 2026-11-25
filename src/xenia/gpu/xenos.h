@@ -1082,6 +1082,7 @@ typedef enum {
   XE_GPU_TEXTURE_SWIZZLE_RGGG = XE_GPU_MAKE_TEXTURE_SWIZZLE(R, G, G, G),
   XE_GPU_TEXTURE_SWIZZLE_RGBB = XE_GPU_MAKE_TEXTURE_SWIZZLE(R, G, B, B),
   XE_GPU_TEXTURE_SWIZZLE_RGBA = XE_GPU_MAKE_TEXTURE_SWIZZLE(R, G, B, A),
+  XE_GPU_TEXTURE_SWIZZLE_ABGR = XE_GPU_MAKE_TEXTURE_SWIZZLE(A, B, G, R),
   XE_GPU_TEXTURE_SWIZZLE_0000 = XE_GPU_MAKE_TEXTURE_SWIZZLE(0, 0, 0, 0),
 } XE_GPU_TEXTURE_SWIZZLE;
 
@@ -1192,9 +1193,9 @@ constexpr uint32_t kTextureSubresourceAlignmentBytes =
 // Texture fetch constant size field widths.
 constexpr uint32_t kTexture1DMaxWidthLog2 = 24;
 constexpr uint32_t kTexture1DMaxWidth = 1 << kTexture1DMaxWidthLog2;
-// Limit the number of rows materialized when wide 1D textures are mapped to
-// 2D. Some games use very large widths with much less data behind them.
-constexpr uint32_t kTexture1DWideMaxRows = 32;
+// The number of rows materialized when wide 1D textures are mapped to 2D is
+// limited (some games use very large widths with much less data behind them):
+// see the texture_1d_wide_max_rows cvar, GetTexture1DWideMaxRows().
 constexpr uint32_t kTexture2DCubeMaxWidthHeightLog2 = 13;
 constexpr uint32_t kTexture2DCubeMaxWidthHeight =
     1 << kTexture2DCubeMaxWidthHeightLog2;

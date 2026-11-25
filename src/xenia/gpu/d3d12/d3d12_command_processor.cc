@@ -8,6 +8,7 @@
  */
 
 #include "xenia/gpu/d3d12/d3d12_command_processor.h"
+#include <algorithm>
 #include <cstring>
 #include "xenia/apu/audio_system.h"
 #include "xenia/base/assert.h"
@@ -23,6 +24,7 @@
 #include "xenia/gpu/gpu_flags.h"
 #include "xenia/gpu/packet_disassembler.h"
 #include "xenia/gpu/registers.h"
+#include "xenia/gpu/texture_address.h"
 #include "xenia/gpu/xenos.h"
 #include "xenia/gpu/xenos_zpd_report.h"
 #include "xenia/kernel/kernel_state.h"
@@ -41,6 +43,11 @@ DEFINE_bool(d3d12_submit_on_primary_buffer_end, true,
 
 DECLARE_bool(clear_memory_page_state);
 DECLARE_bool(readback_resolve_half_pixel_offset);
+DEFINE_int32(
+    resolve_constant_one_threshold, 128,
+    "Resolve copy command 2 (DXT3A_AS_1_1_1_1 masks): an 8-bit channel "
+    "at or above this value sets its mask bit.",
+    "GPU");
 
 namespace xe {
 namespace gpu {
@@ -3289,6 +3296,10 @@ bool D3D12CommandProcessor::IssueCopy() {
     return false;
   }
   ReadbackResolveMode readback_mode = GetReadbackResolveMode();
+  if (register_file_->Get<reg::RB_COPY_CONTROL>().copy_command ==
+      xenos::CopyCommand::kConstantOne) {
+    return IssueCopy_ConstantOne(readback_mode);
+  }
   if (readback_mode == ReadbackResolveMode::kDisabled) {
     uint32_t written_address, written_length;
     return render_target_cache_->Resolve(*memory_, *shared_memory_,
@@ -3298,6 +3309,142 @@ bool D3D12CommandProcessor::IssueCopy() {
     return IssueCopy_ReadbackResolvePath();
   }
 }
+
+// Copy command 2 resolves a 32bpp color render target to DXT3A_AS_1_1_1_1: one
+// mask bit per channel, 4x4 pixels to an 8-byte block. The Kinect NUI tracker
+// uses it for its GPU pyramid. Emulated as a k_8_8_8_8 resolve to a scratch
+// area, read back right away, then packed into the destination on the CPU, so
+// it needs readback_resolve=full.
+bool D3D12CommandProcessor::IssueCopy_ConstantOne(
+    ReadbackResolveMode readback_mode) {
+  RegisterFile& regs = *register_file_;
+  if (readback_mode != ReadbackResolveMode::kFull) {
+    static bool logged = false;
+    if (!logged) {
+      logged = true;
+      XELOGW(
+          "Resolve copy command 2 (DXT3A_AS_1_1_1_1 masks) needs "
+          "readback_resolve=full - skipped");
+    }
+    return true;
+  }
+  constexpr uint32_t kScratchSize = 4 * 1024 * 1024;
+  if (!constant_one_scratch_) {
+    uint32_t virtual_address =
+        memory_->SystemHeapAlloc(kScratchSize, 4096, kSystemHeapPhysical);
+    if (!virtual_address) {
+      XELOGE("Resolve copy command 2: failed to allocate the scratch area");
+      return true;
+    }
+    constant_one_scratch_ = memory_->GetPhysicalAddress(virtual_address);
+  }
+  uint32_t saved_control = regs[XE_GPU_REG_RB_COPY_CONTROL];
+  uint32_t saved_base = regs[XE_GPU_REG_RB_COPY_DEST_BASE];
+  uint32_t saved_info = regs[XE_GPU_REG_RB_COPY_DEST_INFO];
+  uint32_t saved_pitch = regs[XE_GPU_REG_RB_COPY_DEST_PITCH];
+  auto dest_info = regs.Get<reg::RB_COPY_DEST_INFO>();
+  auto dest_pitch = regs.Get<reg::RB_COPY_DEST_PITCH>();
+  // The destination pitch and height are in 4x4 blocks.
+  uint32_t blocks_x = dest_pitch.copy_dest_pitch;
+  uint32_t blocks_y = dest_pitch.copy_dest_height;
+  uint32_t scratch_pitch = xe::align(blocks_x * 4, uint32_t(32));
+  // A rectangle can reach a block row past copy_dest_height.
+  uint32_t scratch_height = xe::align(blocks_y * 4 + 4, uint32_t(32));
+  if (!blocks_x || !blocks_y ||
+      scratch_pitch * scratch_height * 4 > kScratchSize) {
+    XELOGE("Resolve copy command 2: unexpected destination {}x{} blocks",
+           blocks_x, blocks_y);
+    return true;
+  }
+
+  reg::RB_COPY_CONTROL control;
+  control.value = saved_control;
+  control.copy_command = xenos::CopyCommand::kConvert;
+  reg::RB_COPY_DEST_INFO scratch_info;
+  scratch_info.value = 0;
+  scratch_info.copy_dest_endian = xenos::Endian128::kNone;
+  scratch_info.copy_dest_format =
+      xenos::ColorFormat(uint32_t(xenos::TextureFormat::k_8_8_8_8));
+  reg::RB_COPY_DEST_PITCH scratch_pitch_reg;
+  scratch_pitch_reg.value = 0;
+  scratch_pitch_reg.copy_dest_pitch = blocks_x * 4;
+  scratch_pitch_reg.copy_dest_height = blocks_y * 4;
+  uint8_t* scratch = memory_->TranslatePhysical(constant_one_scratch_);
+  std::memset(scratch, 0, scratch_pitch * scratch_height * 4);
+  regs[XE_GPU_REG_RB_COPY_CONTROL] = control.value;
+  regs[XE_GPU_REG_RB_COPY_DEST_BASE] = constant_one_scratch_;
+  regs[XE_GPU_REG_RB_COPY_DEST_INFO] = scratch_info.value;
+  regs[XE_GPU_REG_RB_COPY_DEST_PITCH] = scratch_pitch_reg.value;
+  bool resolved = IssueCopy_ReadbackResolvePath();
+  regs[XE_GPU_REG_RB_COPY_CONTROL] = saved_control;
+  regs[XE_GPU_REG_RB_COPY_DEST_BASE] = saved_base;
+  regs[XE_GPU_REG_RB_COPY_DEST_INFO] = saved_info;
+  regs[XE_GPU_REG_RB_COPY_DEST_PITCH] = saved_pitch;
+  if (!resolved) {
+    return false;
+  }
+
+  // Pack. Nibble bits per pixel: R 0, G 1, B 2, A 3. The NUI tracker reads
+  // these masks raw, as k_16_16_16_16 integers, and tests bit 0 of every
+  // nibble, so R is bit 0; the texture format tables swizzle the loader's
+  // output to match. Pixel x of a block row is at bits 4x of that row's 16
+  // bits, rows in order, then the destination endianness.
+  uint32_t threshold =
+      uint32_t(std::clamp(cvars::resolve_constant_one_threshold, 1, 255));
+  uint32_t dest_pitch_aligned = xe::align(blocks_x, uint32_t(32));
+  uint8_t* dest = memory_->TranslatePhysical(saved_base);
+  uint32_t dest_end = 0;
+  for (uint32_t by = 0; by < blocks_y; ++by) {
+    for (uint32_t bx = 0; bx < blocks_x; ++bx) {
+      uint8_t block[8];
+      for (uint32_t y = 0; y < 4; ++y) {
+        uint32_t row = 0;
+        for (uint32_t x = 0; x < 4; ++x) {
+          const uint8_t* pixel =
+              scratch + texture_address::Tiled2D(int32_t(bx * 4 + x),
+                                                 int32_t(by * 4 + y),
+                                                 scratch_pitch, 2);
+          uint32_t nibble = (pixel[0] >= threshold ? 1u : 0u) |
+                            (pixel[1] >= threshold ? 2u : 0u) |
+                            (pixel[2] >= threshold ? 4u : 0u) |
+                            (pixel[3] >= threshold ? 8u : 0u);
+          row |= nibble << (4 * x);
+        }
+        block[2 * y] = uint8_t(row);
+        block[2 * y + 1] = uint8_t(row >> 8);
+      }
+      switch (dest_info.copy_dest_endian) {
+        case xenos::Endian128::k8in16:
+          for (uint32_t i = 0; i < 8; i += 2) {
+            std::swap(block[i], block[i + 1]);
+          }
+          break;
+        case xenos::Endian128::k8in32:
+          for (uint32_t i = 0; i < 8; i += 4) {
+            std::swap(block[i], block[i + 3]);
+            std::swap(block[i + 1], block[i + 2]);
+          }
+          break;
+        case xenos::Endian128::k16in32:
+          for (uint32_t i = 0; i < 8; i += 4) {
+            std::swap(block[i], block[i + 2]);
+            std::swap(block[i + 1], block[i + 3]);
+          }
+          break;
+        default:
+          break;
+      }
+      uint32_t offset = uint32_t(texture_address::Tiled2D(
+          int32_t(bx), int32_t(by), dest_pitch_aligned, 3));
+      std::memcpy(dest + offset, block, sizeof(block));
+      dest_end = std::max(dest_end, offset + uint32_t(sizeof(block)));
+    }
+  }
+  // The GPU's copy of the destination is now stale.
+  shared_memory_->MemoryInvalidationCallback(saved_base, dest_end, true);
+  return true;
+}
+
 XE_NOINLINE
 bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
   uint32_t written_address, written_length;

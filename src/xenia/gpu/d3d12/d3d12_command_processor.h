@@ -321,6 +321,9 @@ class D3D12CommandProcessor final : public CommandProcessor {
   bool IssueCopy() override;
   XE_NOINLINE
   bool IssueCopy_ReadbackResolvePath();
+  bool IssueCopy_ConstantOne(ReadbackResolveMode readback_mode);
+  // Guest physical scratch for IssueCopy_ConstantOne (0 until first use).
+  uint32_t constant_one_scratch_ = 0;
   void InitializeTrace() override;
 
  private:

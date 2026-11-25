@@ -9,6 +9,8 @@
 
 #ifndef XENIA_GPU_GPU_FLAGS_H_
 #define XENIA_GPU_GPU_FLAGS_H_
+#include <cstdint>
+
 #include "xenia/base/cvar.h"
 
 DECLARE_path(trace_gpu_prefix);
@@ -49,6 +51,15 @@ DECLARE_bool(gpu_3d_to_2d_texture);
 DECLARE_bool(force_depth_clamp);
 
 DECLARE_bool(mulsc_round_toward_zero);
+
+DECLARE_int32(texture_1d_wide_max_rows);
+
+namespace xe {
+namespace gpu {
+// Row limit for 1D textures wider than 8192, mapped to 2D (clamped cvar).
+uint32_t GetTexture1DWideMaxRows();
+}  // namespace gpu
+}  // namespace xe
 
 #define XE_GPU_FINE_GRAINED_DRAW_SCOPES 1
 

@@ -1386,7 +1386,7 @@ void SpirvShaderTranslator::ProcessTextureFetchInstruction(
                   builder_->createNoContractionBinOp(spv::OpFDiv, type_float_,
                                                      original_width_float,
                                                      row_width_float)),
-              builder_->makeFloatConstant(float(xenos::kTexture1DWideMaxRows)));
+              builder_->makeFloatConstant(float(GetTexture1DWideMaxRows())));
 
           // linear_x = coord * original_width (denormalize to texel space)
           spv::Id linear_x = builder_->createNoContractionBinOp(
