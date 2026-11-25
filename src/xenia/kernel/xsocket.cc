@@ -11,6 +11,7 @@
 
 #include <cstring>
 
+#include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/platform.h"
 #include "xenia/kernel/kernel_state.h"
@@ -31,6 +32,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
+
+DEFINE_bool(network_local_only, true,
+            "Keep sockets that games open on this PC (loopback) instead of on "
+            "every network interface. Games run offline, and Windows does not "
+            "ask to let Xenia through the firewall. Turn off for system link "
+            "or online play.",
+            "Network");
 
 namespace xe {
 namespace kernel {
@@ -205,6 +213,10 @@ X_STATUS XSocket::Bind(N_XSOCKADDR_IN* name, int name_len) {
     name->sin_port = new_port;
     XELOGW("XSocket::Bind: port {} requires privileges, remapping to port {}",
            original_port, new_port);
+  }
+
+  if (cvars::network_local_only && name->sin_addr == INADDR_ANY) {
+    name->sin_addr = INADDR_LOOPBACK;
   }
 
   int ret = bind(native_handle_, (sockaddr*)name, name_len);

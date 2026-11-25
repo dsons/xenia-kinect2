@@ -124,7 +124,8 @@ Voice commands do not work
   as a headset or webcam microphone, in the list.
 
 Windows asks whether Xenia may use the network
-  Xenia only needs this for online features. Kinect games work either way.
+  It should not: this build keeps games offline, and Kinect games do not need
+  the network. If it does ask, click Cancel. Kinect games work either way.
 
 Other Kinect software stopped working
   This Kinect driver replaces Microsoft's Kinect driver. To switch back, open
@@ -178,6 +179,11 @@ xenia-canary.config.toml:
   nui_camera_mirror  false (default). Mirror the picture games see.
   nui_mic            true (default): emulate the Kinect microphones.
   nui_mic_device     Part of the name of the microphone to use.
+
+In the [Network] section:
+
+  network_local_only true (default): games stay offline, on this PC only.
+                     Set to false for system link or online play.
 
 
 ABOUT

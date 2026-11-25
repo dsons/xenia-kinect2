@@ -89,6 +89,11 @@ libjpeg-turbo (checked against SHA-256 hashes), applies
 | `texture_1d_wide_max_rows` | `32` | Kinect titles need 96 |
 | `resolve_constant_one_threshold` | `128` | Mask threshold for copy command 2 resolves |
 
+`network_local_only` (default `true`) binds the sockets games open to the
+loopback interface: Kinect titles open Xbox Live and system link sockets they
+do not need for Kinect play, and on all interfaces that makes Windows ask to
+let Xenia through its firewall.
+
 Kinect titles also need `readback_resolve = "full"` and
 `readback_memexport = true`; the per-title files in
 `tools/kinect_release/config` set these.
