@@ -39,6 +39,7 @@ class KinectDialog final : public ui::ImGuiDialog {
   void UpdatePreview();
   void DrawSensor();
   void DrawPreview();
+  void DrawCalibration();
   void DrawView();
   void DrawMicrophone();
   void DrawSetup(bool starting, bool streaming);
@@ -65,7 +66,15 @@ class KinectDialog final : public ui::ImGuiDialog {
   // Whether the player's whole body is in the depth picture.
   enum class Framing { kUnknown, kGood, kFeetCut, kHeadCut, kLegsBlocked };
   Framing CheckFraming(float distance_m) const;
-  Framing framing_ = Framing::kUnknown;
+  Framing framing_ = Framing::kUnknown;  // shown, after holding ~1 s
+  Framing framing_seen_ = Framing::kUnknown;
+  double framing_seen_since_ = 0.0;
+
+  // Calibrate: guide the player into a position where the Kinect sees their
+  // whole body, then say so and close.
+  bool calibrating_ = false;
+  double good_since_ = -1.0;
+  bool close_requested_ = false;
 
   int pan_ = 0;
   float zoom_ = 1.3f;

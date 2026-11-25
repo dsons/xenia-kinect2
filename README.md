@@ -97,8 +97,8 @@ Then:
 2. **Plug in** the adapter's power and its USB cable (straight into the PC).
 3. **Start** `xenia_canary.exe`. The Kinect window opens by itself. If it says the
    driver needs to be set up, press **Set up Kinect driver** and click **Yes**.
-   When you see yourself in the picture and it says **Whole body in view**, close
-   the window (see [Set up where you stand](#set-up-where-you-stand-calibration)).
+   Press **Calibrate** and follow it until it says **Good position**, then press
+   **OK** (see [Set up where you stand](#set-up-where-you-stand-calibration)).
 4. **Play:** open your game with **File > Open...** It plays fullscreen; **Esc**
    brings the window back, **F11** toggles fullscreen.
 
@@ -118,7 +118,7 @@ other Kinect software again), run `kinect\Restore-Kinect.cmd`.
 **Most important for playing:** the Kinect has to see you from head to feet, with
 nothing (like a coffee table) in front of your legs. Dance games compare your
 whole body to the dancer on screen and will not take your poses if your feet are
-hidden. Check it in **HID > Kinect...** and tilt or move the Kinect if needed.
+hidden. Check it with **Calibrate** in **HID > Kinect...**
 
 The full guide, with troubleshooting, is
 [tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
@@ -129,25 +129,25 @@ the download as README.txt).
 Do this the first time, after moving furniture or the Kinect, and **whenever a
 game does not see you or does not take your moves**. It takes a minute.
 
-1. Start `xenia_canary.exe`. With a Kinect plugged in, the **Kinect window**
-   opens by itself. (Otherwise open it from the menu: **HID > Kinect...**; press
-   **Esc** first if a game is fullscreen.)
-2. Stand where you will play, facing the Kinect. Look at the right-hand picture
-   (depth): **green** is a good distance, **red** too close, **blue** too far.
-3. Read the line under the pictures and do what it says:
+1. Open the **Kinect window**: it opens by itself when you start
+   `xenia_canary.exe` with a Kinect plugged in; otherwise use the menu
+   **HID > Kinect...** (press **Esc** first if a game is fullscreen).
+2. Press **Calibrate**.
+3. Stand where you will play, facing the Kinect, and do what the window says:
 
    | The Kinect window says | Do this |
    | --- | --- |
-   | Whole body in view. | You are set. Close the window and play. |
    | Your feet are out of the picture. | Tilt the Kinect down a little, or stand further back. |
    | Your head is out of the picture. | Tilt the Kinect up a little, or stand further back. |
    | Something is in front of your legs. | Move the coffee table or chair, or move the Kinect so it sees your feet. |
    | Step back. / Come closer. | Move until it says "Good distance". |
 
-4. Raise both hands above your head: they should stay inside the picture.
-5. **Kinect for Xbox One only:** in a small room, raise **Step back** (games see
-   you as if you stood further away). If you cannot stand in the middle of the
-   room, use **Shift sideways**.
+4. When it pops up **"Good position. You're ready to play!"**, press **OK** and
+   play from that spot.
+
+**Kinect for Xbox One only:** in a small room, raise **Step back** in the same
+window (games see you as if you stood further away). If you cannot stand in the
+middle of the room, use **Shift sideways**.
 
 Good to know:
 
@@ -162,15 +162,16 @@ Good to know:
 | A game... | Usually means | Fix |
 | --- | --- | --- |
 | says to connect a Kinect | the Kinect is not working | Open the Kinect window; follow what it says (driver, power, USB). |
-| does not notice you | you are out of view or too far | Calibrate as above. |
-| sees you but does not take a pose | feet or head out of view, or something in front of your legs | Calibrate as above until it says "Whole body in view." |
+| does not notice you | you are out of view or too far | Press **Calibrate** in the Kinect window. |
+| sees you but does not take a pose | feet or head out of view, or something in front of your legs | Press **Calibrate** in the Kinect window. |
 | loses your hand | hand against your body or out of the picture | Keep hands away from your body and inside the picture. |
 | is choppy (Kinect for Xbox One) | a slow USB port | Use another USB 3.0 port, ideally on the back of the PC. |
 
 ## Found a problem?
 
-If a game does not see you or does not take your moves, first do
-[Set up where you stand](#set-up-where-you-stand-calibration) above; it fixes most
+If a game does not see you or does not take your moves, first open
+**HID > Kinect...** and press **Calibrate**
+([Set up where you stand](#set-up-where-you-stand-calibration)); it fixes most
 Kinect problems. Otherwise, please tell us, even if you are not sure it is a bug:
 **[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
 (a free GitHub account is needed). A short form asks which Kinect and game you

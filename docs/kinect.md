@@ -63,6 +63,12 @@ sensor is not on WinUSB yet, in which case **Set up Kinect driver** runs
 `kinect\Setup-Kinect.cmd -NoPause` and opens the sensor a few seconds after it
 succeeds. A sensor that opens but sends no frames for 6 seconds is reopened.
 
+**Calibrate** checks the framing on the depth picture (`CheckFraming`): it
+follows the player up and down a band of columns and reports feet or head out
+of the picture, or something nearer in front of the legs, each held a second
+before it is shown. A whole body in view at 1.5-3.2 m for 2 seconds opens the
+"Good position" pop-up, whose OK closes the window.
+
 The release's configuration sets `nui_window_on_start`: the window opens at
 start when SetupAPI sees a Kinect, and never when Xenia is started with a game
 (`target`), so launchers and shortcuts go straight into the game.

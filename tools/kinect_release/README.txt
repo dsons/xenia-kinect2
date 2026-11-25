@@ -65,9 +65,9 @@ STEP 4. Start Xenia and set up the Kinect
   make changes to your device?": click "Yes". A moment later the window
   connects to the Kinect.
 
-  When it works, you see yourself and a colourful depth picture. Stand
-  where you will play until it says "Good distance" and "Whole body in
-  view" (see SET UP WHERE YOU STAND below). Then close the Kinect window.
+  When it works, you see yourself and a colourful depth picture. Press
+  "Calibrate" and follow it until it says "Good position", then press OK
+  (see SET UP WHERE YOU STAND below).
 
   The Kinect window opens like this every time you start Xenia with a
   Kinect plugged in, so you can check where you stand before choosing a
@@ -98,14 +98,12 @@ SET UP WHERE YOU STAND (CALIBRATION)
 Do this the first time, after moving furniture or the Kinect, and whenever a
 game does not see you or does not take your moves.
 
-  1. Start xenia_canary.exe. With a Kinect plugged in, the Kinect window
-     opens by itself (otherwise: "HID" menu > "Kinect..."; press Esc first
-     if a game is fullscreen).
-  2. Stand where you will play, facing the Kinect. In the right-hand
-     (depth) picture, green is a good distance, red too close, blue too far.
-  3. Read the line under the pictures and do what it says:
+  1. Open the Kinect window: it opens by itself when you start Xenia with a
+     Kinect plugged in (otherwise: "HID" menu > "Kinect..."; press Esc
+     first if a game is fullscreen).
+  2. Press "Calibrate".
+  3. Stand where you will play, facing the Kinect, and do what it says:
 
-     "Whole body in view."            You are set. Close it and play.
      "Your feet are out of the        Tilt the Kinect down a little, or
       picture."                       stand further back.
      "Your head is out of the         Tilt the Kinect up a little, or stand
@@ -114,9 +112,11 @@ game does not see you or does not take your moves.
       your legs."                     Kinect so it sees your feet.
      "Step back." / "Come closer."    Move until it says "Good distance".
 
-  4. Raise both hands above your head: they should stay in the picture.
-  5. Kinect for Xbox One only: in a small room raise "Step back"; if you
-     cannot stand in the middle, use "Shift sideways".
+  4. When it says "Good position. You're ready to play!", press OK and play
+     from that spot.
+
+  Kinect for Xbox One only: in a small room raise "Step back"; if you
+  cannot stand in the middle, use "Shift sideways".
 
   Games cannot tilt your Kinect for you, so aim it by hand. Dance games
   compare your whole body to the dancer: if your feet are hidden, they see
@@ -130,9 +130,7 @@ PLAYING TIPS
   Kinect must see ALL of you, head to feet, with nothing in front of your
   legs (a coffee table, the arm of a couch). Dance games compare your whole
   body to the dancer on screen: if your feet are hidden or out of view, they
-  will not take your poses. Check in HID > Kinect...: your feet should be in
-  the depth picture. If they are not, tilt the Kinect down a little or move
-  it, rather than stepping closer.
+  will not take your poses. Press "Calibrate" in HID > Kinect... to check.
 - A bright room helps. Avoid standing right in front of a window.
 - Kinect for Xbox One only: if your room is small or your hands leave the
   picture, open HID > Kinect... and raise "Step back". If you cannot stand in
@@ -161,10 +159,8 @@ IF SOMETHING DOES NOT WORK
   then press "Retry" in HID > Kinect...
 
 A game sees you but does not take a pose or gesture
-  Usually the Kinect cannot see your whole body. Open HID > Kinect... and
-  make sure the depth picture shows you from head to feet with nothing in
-  front of your legs; tilt or move the Kinect until it does. This is what
-  made Just Dance 4 take its "Raise hand!" pose in testing.
+  Usually the Kinect cannot see your whole body. Open HID > Kinect...,
+  press "Calibrate" and follow it until it says "Good position".
 
 The game says to connect a Kinect
   Open HID > Kinect... and check that it says "connected". If it does not,
