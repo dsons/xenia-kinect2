@@ -9,7 +9,8 @@ included: use your own copies.
 
 It is not the official Xenia Canary, which cannot use a Kinect. For games
 that do not use Kinect, the official Xenia Canary is newer and a better
-choice. Report problems with this version at github.com/dsons/xenia-kinect2.
+choice. Report problems with this version at
+github.com/dsons/xenia-kinect2/issues.
 
 
 QUICK SETUP
@@ -134,12 +135,16 @@ Windows asks whether Xenia may use the network
   the network. If it does ask, click Cancel. Kinect games work either way.
 
 Other Kinect software stopped working
-  This Kinect driver replaces Microsoft's Kinect driver. To switch back, open
-  the kinect folder and double-click "Restore-Kinect.cmd". Run
-  "Setup-Kinect.cmd" again to play with Xenia.
+  The driver setup replaces the Kinect's usual driver. To undo it, open the
+  kinect folder and double-click "Restore-Kinect.cmd". To play with Xenia
+  again, press "Set up Kinect driver" in HID > Kinect... again.
 
-Still stuck? Look in the file xenia.log next to xenia_canary.exe for lines
-starting with "Kinect".
+Still stuck, or found a problem? Please report it at
+
+  github.com/dsons/xenia-kinect2/issues
+
+(a free GitHub account is needed). Say which Kinect and game you used and
+what happened, and add the file xenia.log from the Xenia folder.
 
 
 TESTED GAMES
@@ -171,8 +176,8 @@ one of the files there and rename it.
 ADVANCED SETTINGS
 -----------------
 
-Everything in HID > Kinect... is saved in the [NUI] section of
-xenia-canary.config.toml:
+The settings of HID > Kinect..., and a few more, are in the [NUI] section
+of xenia-canary.config.toml:
 
   nui_camera         auto (default): a Kinect for Xbox 360 if one is plugged
                      in, otherwise a Kinect for Xbox One. kinect1, kinect2:

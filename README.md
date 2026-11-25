@@ -92,12 +92,26 @@ untick "Open this window when Xenia starts"). After that it is under
 already part of Windows; the **Set up Kinect driver** button (or
 `kinect\Setup-Kinect.cmd`) switches the Kinect to it. You do not need the Kinect
 for Windows SDK, the Kinect Runtime, Zadig or any other download. The Visual C++
-runtime is included in the zip. To give the Kinect back to Microsoft's driver,
-run `kinect\Restore-Kinect.cmd`.
+runtime is included in the zip. To undo the driver setup (for example to use
+other Kinect software again), run `kinect\Restore-Kinect.cmd`.
 
 The full guide, with troubleshooting, is
 [tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
 the download as README.txt).
+
+## Found a problem?
+
+Please tell us, even if you are not sure it is a bug:
+**[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
+(a free GitHub account is needed). A short form asks which Kinect and game you
+used and what happened; adding the file `xenia.log` from the Xenia folder helps
+a lot. Ideas and reports that another Kinect game works are welcome too. You can
+see what others have reported on the
+[Issues page](https://github.com/dsons/xenia-kinect2/issues).
+
+Problems with games that do not use Kinect belong to the official
+[Xenia Canary](https://github.com/xenia-canary/xenia-canary) instead, but please
+don't report Kinect problems to the Xenia Canary team: this fork is not theirs.
 
 ## Where everything comes from
 
@@ -135,79 +149,35 @@ To make your own build anyway, pick one:
   it finishes, the zip is next to `Build-Xenia-Kinect2.cmd`. The first build takes
   about half an hour; later ones are quicker.
 - **On GitHub, with nothing installed:** sign in to GitHub, press **Fork** at the
-  top of this page, open your fork's **Actions** tab, choose **Kinect release**
-  and press **Run workflow**. After about 30 minutes, the zip is under
-  **Artifacts** on that run's page.
+  top of this page, then open your fork's **Actions** tab. The first time,
+  GitHub asks you to turn workflows on: press the green button to allow them.
+  Choose **Kinect release** on the left and press **Run workflow**. When the run
+  finishes (about 30 minutes), the zip is under **Artifacts** at the bottom of
+  that run's page.
 
 Developers: how it works and the build steps are in [docs/kinect.md](docs/kinect.md).
 
 
 ## About Xenia Canary
 
-Xenia Canary is an experimental fork of the Xenia emulator. For more information, see the
-[Xenia Canary wiki](https://github.com/xenia-canary/xenia-canary/wiki).
+This project is built on [Xenia Canary](https://github.com/xenia-canary/xenia-canary),
+the Xbox 360 emulator made by the Xenia team, and all the emulation apart from
+Kinect is their work. Their [wiki](https://github.com/xenia-canary/xenia-canary/wiki),
+[FAQ](https://github.com/xenia-canary/xenia-canary/wiki/FAQ),
+[game compatibility list](https://github.com/xenia-canary/game-compatibility/issues)
+and Discord are about Xenia Canary itself: they are useful for general
+questions about the emulator, but please ask about Kinect here.
 
-Come chat with us about **emulator-related topics** on [Discord](https://discord.gg/Q9mxZf9).
-For developer chat join `#dev` but stay on topic. Lurking is not only fine, but encouraged!
-Please check the [FAQ](https://github.com/xenia-canary/xenia-canary/wiki/FAQ) page before asking questions.
-We've got jobs/lives/etc, so don't expect instant answers.
-
-Discussing illegal activities will get you banned.
-
-## Status
-
-Buildbot | Status | Releases
--------- | ------ | --------
-Canary (🪟, 🐧) | [![CI](https://github.com/xenia-canary/xenia-canary/actions/workflows/Orchestrator.yml/badge.svg?branch=canary_experimental)](https://github.com/xenia-canary/xenia-canary/actions/workflows/Orchestrator.yml/badge.svg?branch=canary_experimental) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/cd506034fd8148309a45034925648499)](https://app.codacy.com/gh/xenia-canary/xenia-canary/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) | [Latest](https://github.com/xenia-canary/xenia-canary/releases/latest) ◦ [All](https://github.com/xenia-canary/xenia-canary/releases) ◦ [Old](https://github.com/xenia-canary/xenia-canary-releases/releases)
-
-### Experimental Netplay
-
-Buildbot | Status | Releases
--------- | ------ | --------
-Windows | [![Codacy Badge](https://app.codacy.com/project/badge/Grade/d814c4b6aa444dcc9c1631e0224b2739)](https://app.codacy.com/gh/AdrianCassar/xenia-canary/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) | [Latest](https://github.com/AdrianCassar/xenia-canary/releases/latest)
-
-## Quickstart
-
-See the [Quickstart](https://github.com/xenia-canary/xenia-canary/wiki/Quickstart) page.
-
-## FAQ
-
-See the [frequently asked questions](https://github.com/xenia-canary/xenia-canary/wiki/FAQ) page.
-
-## Game Compatibility
-
-See the [Game compatibility list](https://github.com/xenia-canary/game-compatibility/issues)
-for currently tracked games, and feel free to contribute your own updates,
-screenshots, and information there following the [existing conventions](https://github.com/xenia-canary/game-compatibility/blob/canary/README.md).
-
-## Building
-
-See [building.md](docs/building.md) for setup and information about the
-`xb` script. When writing code, check the [style guide](docs/style_guide.md)
-and be sure to run clang-format!
-
-## Contributors Wanted!
-
-Have some spare time, know advanced C++, and want to write an emulator?
-Contribute! There's a ton of work that needs to be done, a lot of which
-is wide open greenfield fun.
-
-**For general rules and guidelines please see [CONTRIBUTING.md](.github/CONTRIBUTING.md).**
-
-Fixes and optimizations are always welcome (please!), but in addition to
-that there are some major work areas still untouched:
-
-* Help work through [missing functionality/bugs in games](https://github.com/xenia-canary/xenia-canary/labels/compat)
-* Reduce the size of Xenia's [huge log files](https://github.com/xenia-canary/xenia-canary/issues/1526)
-* Skilled with Linux? A strong contributor is needed to [help with porting](https://github.com/xenia-canary/xenia-canary/labels/platform-linux)
-
-See more projects [good for contributors](https://github.com/xenia-canary/xenia-canary/labels/good%20first%20issue). It's a good idea to ask on Discord and check the issues page before beginning work on
-something.
+For developers: Xenia's own build instructions are in
+[docs/building.md](docs/building.md) and its style guide in
+[docs/style_guide.md](docs/style_guide.md).
 
 ## Disclaimer
 
 The goal of this project is to experiment, research, and educate on the topic
 of emulation of modern devices and operating systems. **It is not for enabling
-illegal activity**. All information is obtained via reverse engineering of
-legally purchased devices and games and information made public on the internet
-(you'd be surprised what's indexed on Google...).
+illegal activity**. Games are not included; use copies you own.
+
+This project is not affiliated with or endorsed by Microsoft or the Xenia team.
+Xbox, Xbox 360, Xbox One and Kinect are trademarks of Microsoft Corporation.
+Xenia is released under the BSD license ([LICENSE](LICENSE)).

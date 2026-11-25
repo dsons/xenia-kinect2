@@ -53,8 +53,19 @@ Runtime are not used.
 **HID > Kinect...** (`src/xenia/app/kinect_dialog.cc`) chooses the sensor,
 shows its status and frame rate, a live colour and depth picture with a
 distance hint, the Kinect 2 view controls and the microphone with a level
-meter, and runs the driver setup. It works without a game; settings are
-saved to the configuration file as they change.
+meter. It works without a game; settings are saved to the configuration file
+as they change (through `OverrideConfigValue`, since the file is written from
+config values).
+
+It also guides the driver setup: it lists the Kinect devices Windows sees
+(SetupAPI) and says whether none is plugged in, a Kinect 1 has no power, or a
+sensor is not on WinUSB yet, in which case **Set up Kinect driver** runs
+`kinect\Setup-Kinect.cmd -NoPause` and opens the sensor a few seconds after it
+succeeds. A sensor that opens but sends no frames for 6 seconds is reopened.
+
+The release's configuration sets `nui_window_on_start`, so the window opens at
+start until a Kinect has delivered frames once (`nui_kinect_seen`); then it is
+turned off and the window says so.
 
 ## Building a release
 
@@ -97,6 +108,8 @@ pushed `v*` tag also publishes a release with the zip, its checksum,
 | `nui_mic` | `true` | Emulate the microphone array |
 | `nui_mic_device` | `Xbox NUI Sensor` | Capture device name to match |
 | `nui_kinect_id` | `true` | Enroll a newly tracked player as the signed-in user |
+| `nui_window_on_start` | `false` (`true` in the release) | Open the Kinect window at start |
+| `nui_kinect_seen` | `false` | Set once a Kinect has worked; turns `nui_window_on_start` off |
 | `default_profile_gamertag` | empty | Create and sign in a profile on boot |
 | `texture_1d_wide_max_rows` | `32` | Kinect titles need 96 |
 | `resolve_constant_one_threshold` | `128` | Mask threshold for copy command 2 resolves |

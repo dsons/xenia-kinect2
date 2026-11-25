@@ -1,4 +1,5 @@
+blank_issues_enabled: true
 contact_links:
-  - name: Xenia Discord server
-    url: https://discord.gg/Q9mxZf9
-    about: Tech support for Xenia belongs here.
+  - name: A game that does not use Kinect
+    url: https://github.com/xenia-canary/xenia-canary
+    about: For games without Kinect, use the official Xenia Canary, which is newer.

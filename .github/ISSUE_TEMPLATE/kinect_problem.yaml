@@ -1,0 +1,50 @@
+name: Something does not work
+description: The Kinect, a game, the setup or the download does not work as expected.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. Plain words are fine: describe it as you would to a friend.
+        Please don't include game files or links to them.
+  - id: problem
+    type: textarea
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead? A screenshot helps.
+    validations:
+      required: true
+  - id: kinect
+    type: dropdown
+    attributes:
+      label: Which Kinect?
+      options:
+        - Kinect for Xbox 360 (or Kinect for Windows v1)
+        - Kinect for Xbox One (or Kinect for Windows v2)
+        - None, or not about the Kinect
+    validations:
+      required: true
+  - id: game
+    type: input
+    attributes:
+      label: Which game?
+      description: Leave empty if it happens without a game.
+  - id: kinect_window
+    type: input
+    attributes:
+      label: What does HID > Kinect... say?
+      description: The coloured line under "Sensor", for example "No Kinect found".
+  - id: version
+    type: input
+    attributes:
+      label: Version
+      description: The number in the zip's name, for example 0.1.0.
+  - id: pc
+    type: input
+    attributes:
+      label: PC
+      description: Windows 10 or 11, and the graphics card, if you know them.
+  - id: log
+    type: textarea
+    attributes:
+      label: xenia.log
+      description: Drag the file xenia.log from the Xenia folder into this box.

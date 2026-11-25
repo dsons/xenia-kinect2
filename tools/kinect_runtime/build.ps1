@@ -63,7 +63,9 @@ if (-not (Test-Path $vswhere)) {
 $vs = & $vswhere -latest -products * -version '[17,)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if (-not $vs) { throw 'Visual Studio 2022 or later with the C++ workload was not found' }
 $vsMajor = [int](& $vswhere -path $vs -property installationVersion).Split('.')[0]
-$vsYear = & $vswhere -path $vs -property catalog_productLineVersion
+$vsYears = @{ 17 = '2022'; 18 = '2026' }
+$vsYear = $vsYears[$vsMajor]
+if (-not $vsYear) { throw "Visual Studio $vsMajor is not supported by this script yet" }
 $cmake = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
 if (-not (Test-Path $cmake)) { $cmake = (Get-Command cmake -ErrorAction Stop).Source }
 $git = (Get-Command git -ErrorAction Stop).Source

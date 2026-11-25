@@ -179,8 +179,8 @@ struct KinectCamera::Impl {
     SetMessage(
         in_use ? "The Kinect is in use by another program. Close it and "
                  "press Retry."
-               : "No Kinect found. Check that it is plugged in and powered, "
-                 "and that the driver is installed (Install driver).");
+               : "No Kinect found. Check that it is plugged in and its "
+                 "adapter has power, then press Retry.");
     return KinectSensorKind::kNone;
   }
 
