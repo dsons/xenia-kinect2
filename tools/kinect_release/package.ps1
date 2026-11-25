@@ -37,6 +37,10 @@ Copy-Item (Join-Path $here 'patches') (Join-Path $dist 'patches') -Recurse
 # Keeps the configuration, profiles and saves next to the executable.
 Set-Content -Path (Join-Path $dist 'portable.txt') -Value '' -NoNewline
 Set-Content -Path (Join-Path $dist 'xenia-canary.config.toml') -Encoding ASCII -Value @(
+  '[Display]',
+  '# Games play fullscreen; Esc or F11 leaves it.',
+  'fullscreen_on_game = true',
+  '',
   '[NUI]',
   '# Opens HID > Kinect... at start until a Kinect has worked once.',
   'nui_window_on_start = true',

@@ -79,7 +79,9 @@ STEP 4. Start Xenia and set up the Kinect
 PLAY
 
   Open the "File" menu, choose "Open...", and pick your game (a disc image
-  such as an .iso file, or a game's default.xex).
+  such as an .iso file, or a game's default.xex). The game fills the screen;
+  press Esc to get the window and its menus back, and F11 to go fullscreen
+  again.
 
   Kinect games want a player profile. Xenia makes one called "Player" and
   signs it in for you.

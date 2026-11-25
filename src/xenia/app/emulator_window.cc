@@ -68,6 +68,9 @@ DECLARE_bool(readback_memexport);
 
 DEFINE_bool(fullscreen, false, "Whether to launch the emulator in fullscreen.",
             "Display");
+DEFINE_bool(fullscreen_on_game, false,
+            "Switch to fullscreen when a game starts (Esc or F11 leaves it).",
+            "Display");
 
 DEFINE_bool(controller_hotkeys, false, "Hotkeys for Xbox and PS controllers.",
             "General");
@@ -2361,6 +2364,9 @@ xe::X_STATUS EmulatorWindow::RunTitle(
     emulator_->file_system()->Clear();
   } else {
     AddRecentlyLaunchedTitle(path_to_file, emulator_->title_name());
+    if (cvars::fullscreen_on_game) {
+      SetFullscreen(true);
+    }
 
     auto xam =
         emulator_->kernel_state()->GetKernelModule<kernel::xam::XamModule>(

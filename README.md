@@ -96,7 +96,8 @@ Then:
 3. **Start** `xenia_canary.exe`. The Kinect window opens by itself. If it says the
    driver needs to be set up, press **Set up Kinect driver** and click **Yes**.
    When you see yourself in the picture, close the window.
-4. **Play:** open your game with **File > Open...**
+4. **Play:** open your game with **File > Open...** It plays fullscreen; **Esc**
+   brings the window back, **F11** toggles fullscreen.
 
 The Kinect window opens by itself only until the Kinect has worked once (or
 untick "Open this window when Xenia starts"). After that it is under
