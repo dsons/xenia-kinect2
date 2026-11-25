@@ -41,12 +41,15 @@ namespace {
 std::atomic<xk_log_callback> g_log_callback{nullptr};
 // Set when libusb refused to open a sensor: another program holds it.
 std::atomic<bool> g_access_denied{false};
+// Set while a sensor is being closed: stopping the streams cancels transfers
+// in flight, which the libraries report as failures.
+std::atomic<bool> g_closing{false};
 
 void Log(int level, const std::string& message) {
   if (message.find("LIBUSB_ERROR_ACCESS") != std::string::npos) {
     g_access_denied = true;
   }
-  if (level > 2) {
+  if (level > 2 || g_closing) {
     return;
   }
   if (auto callback = g_log_callback.load()) {
@@ -402,6 +405,12 @@ std::mutex g_mutex;
 std::unique_ptr<Sensor> g_sensor;
 bool g_logger_installed = false;
 
+void CloseSensor() {
+  g_closing = true;
+  g_sensor.reset();
+  g_closing = false;
+}
+
 void InstallLogger() {
   if (!g_logger_installed) {
     g_logger_installed = true;
@@ -421,7 +430,7 @@ XK_API void xk_set_log_callback(xk_log_callback callback) {
 
 XK_API int xk_open(int sensor) {
   std::lock_guard<std::mutex> lock(g_mutex);
-  g_sensor.reset();
+  CloseSensor();
   InstallLogger();
   g_access_denied = false;
   int result = XK_ERROR_INVALID;
@@ -464,5 +473,5 @@ XK_API int xk_read(uint8_t* rgb, uint16_t* depth, int timeout_ms) {
 
 XK_API void xk_close(void) {
   std::lock_guard<std::mutex> lock(g_mutex);
-  g_sensor.reset();
+  CloseSensor();
 }
