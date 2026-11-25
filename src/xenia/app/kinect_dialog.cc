@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cwctype>
 
 #include "xenia/app/emulator_window.h"
 #include "xenia/base/cvar.h"
@@ -23,8 +24,17 @@
 
 #if XE_PLATFORM_WIN32
 #include "xenia/base/platform_win.h"
+// After windows.h.
+#include <setupapi.h>
+#pragma comment(lib, "setupapi.lib")
 #endif
 
+DEFINE_bool(nui_kinect_seen, false,
+            "Set once a Kinect has worked. Until then the Kinect window opens "
+            "when Xenia starts if nui_window_on_start is set.",
+            "NUI");
+
+DECLARE_bool(nui_window_on_start);
 DECLARE_string(nui_camera);
 DECLARE_int32(nui_kinect2_pan);
 DECLARE_double(nui_kinect2_zoom);
@@ -65,6 +75,25 @@ bool IsSensorMode(const std::string& mode) {
 const ImVec4 kGood(0.45f, 0.85f, 0.45f, 1.0f);
 const ImVec4 kWarn(0.95f, 0.75f, 0.30f, 1.0f);
 
+// Changes a setting so that config::SaveConfig() writes it: the file is
+// written from each setting's config value, not from the variable.
+template <typename T>
+void SetSetting(const char* name, T value) {
+  auto it = cvar::ConfigVars->find(name);
+  if (it == cvar::ConfigVars->end()) {
+    return;
+  }
+  if (auto var = dynamic_cast<cvar::ConfigVar<T>*>(it->second)) {
+    var->OverrideConfigValue(value);
+  }
+}
+
+#if XE_PLATFORM_WIN32
+bool StartsWith(const std::wstring& text, const wchar_t* prefix) {
+  return text.compare(0, wcslen(prefix), prefix) == 0;
+}
+#endif
+
 }  // namespace
 
 KinectDialog::KinectDialog(ui::ImGuiDrawer* imgui_drawer,
@@ -86,6 +115,11 @@ KinectDialog::~KinectDialog() {
   if (pending_start_.valid()) {
     pending_start_.wait();
   }
+#if XE_PLATFORM_WIN32
+  if (setup_process_) {
+    CloseHandle(setup_process_);
+  }
+#endif
   // Without a game the sensor was only on for this window.
   if (!TitleRunning()) {
     KinectCamera::Get()->Stop();
@@ -198,7 +232,7 @@ void KinectDialog::DrawSensor() {
     for (const auto& m : kModes) {
       const bool selected = mode == m.cvar;
       if (ImGui::Selectable(m.label, selected) && !selected) {
-        cvars::nui_camera = m.cvar;
+        SetSetting("nui_camera", std::string(m.cvar));
         Save();
         StartSensor(true);
       }
@@ -213,37 +247,173 @@ void KinectDialog::DrawSensor() {
     pending_start_.get();
   }
   auto status = KinectCamera::Get()->GetStatus();
+  // Works means frames arrive, not only that the sensor opened.
+  const bool working = status.streaming && status.frames_per_second > 0.0f;
+  if (working && !cvars::nui_kinect_seen) {
+    // The Kinect works: stop opening this window by itself.
+    SetSetting("nui_kinect_seen", true);
+    if (cvars::nui_window_on_start) {
+      SetSetting("nui_window_on_start", false);
+      start_note_ = true;
+    }
+    Save();
+  }
   if (mode == "synthetic") {
     ImGui::TextColored(kGood, "Games see a moving test figure.");
   } else if (mode == "none") {
     ImGui::TextColored(kWarn, "Kinect is off. Games will ask for a Kinect.");
   } else if (starting) {
     ImGui::Text("Looking for a Kinect...");
-  } else if (status.streaming) {
+  } else if (working) {
     ImGui::TextColored(kGood, "%s connected, %.0f frames a second.",
                        KinectSensorName(status.kind), status.frames_per_second);
-  } else {
-    ImGui::TextColored(kWarn, "%s", status.message.c_str());
+  } else if (status.streaming) {
+    ImGui::TextColored(kWarn, "%s found. Waiting for its picture...",
+                       KinectSensorName(status.kind));
   }
 
   if (IsSensorMode(mode)) {
-    ImGui::BeginDisabled(starting);
-    if (ImGui::Button("Retry")) {
-      StartSensor(true);
-    }
-    ImGui::EndDisabled();
+    DrawSetup(starting, status.streaming);
+  }
+}
+
+void KinectDialog::DrawSetup(bool starting, bool streaming) {
+  PollDriverSetup();
+  DetectHardware(starting, streaming);
+  const bool installing = setup_process_ != nullptr;
+  bool offer_setup = false;
+  if (installing) {
+    ImGui::TextColored(kWarn,
+                       "Setting up the Kinect driver. If Windows asks "
+                       "for permission, click Yes.");
+  } else if (!starting && !streaming) {
 #if XE_PLATFORM_WIN32
+    if (hardware_.camera && hardware_.needs_driver) {
+      ImGui::TextColored(kWarn,
+                         "Kinect found. Its driver needs to be set up once "
+                         "on this PC.");
+      offer_setup = true;
+    } else if (!hardware_.camera && hardware_.motor) {
+      ImGui::TextColored(kWarn,
+                         "Kinect for Xbox 360 found, but its camera is off. "
+                         "Plug its power supply into the wall.");
+    } else if (!hardware_.camera) {
+      ImGui::TextColored(kWarn,
+                         "No Kinect found. Plug the Kinect's adapter into "
+                         "the wall and into a USB port of this PC.");
+    } else {
+      ImGui::TextColored(kWarn, "%s",
+                         KinectCamera::Get()->GetStatus().message.c_str());
+    }
+#else
+    ImGui::TextColored(kWarn, "%s",
+                       KinectCamera::Get()->GetStatus().message.c_str());
+#endif
+  }
+  if (!setup_result_.empty() && !installing && !streaming) {
+    ImGui::TextColored(setup_failed_ ? kWarn : kGood, "%s",
+                       setup_result_.c_str());
+  }
+
+#if XE_PLATFORM_WIN32
+  if (offer_setup) {
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.55f, 0.2f, 1.0f));
+    if (ImGui::Button("Set up Kinect driver", ImVec2(260, 0))) {
+      InstallDriver();
+    }
+    ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip(
+          "Switches the Kinect to the WinUSB driver that comes with "
+          "Windows.\nNothing is downloaded. Needed once per PC.");
+    }
+  }
+#endif
+  ImGui::BeginDisabled(starting || installing);
+  if (ImGui::Button("Retry")) {
+    next_detect_time_ = 0.0;
+    StartSensor(true);
+  }
+#if XE_PLATFORM_WIN32
+  if (!offer_setup) {
     ImGui::SameLine();
-    if (ImGui::Button("Install driver")) {
+    if (ImGui::Button("Set up driver again")) {
       InstallDriver();
     }
     if (ImGui::IsItemHovered()) {
       ImGui::SetTooltip(
-          "Sets up the Kinect's driver (once per PC and USB port).\n"
-          "Windows asks for permission. Press Retry when it is done.");
+          "Sets up the Kinect's driver again, for example after\n"
+          "plugging the Kinect into a different USB port.");
     }
-#endif
   }
+#endif
+  ImGui::EndDisabled();
+}
+
+void KinectDialog::DetectHardware(bool starting, bool streaming) {
+#if XE_PLATFORM_WIN32
+  if (auto_start_time_ > 0.0 && ImGui::GetTime() >= auto_start_time_ &&
+      !starting) {
+    auto_start_time_ = 0.0;
+    if (!streaming) {
+      StartSensor(true);
+    }
+  }
+  if (streaming || ImGui::GetTime() < next_detect_time_) {
+    return;
+  }
+  next_detect_time_ = ImGui::GetTime() + 2.0;
+  Hardware found;
+  HDEVINFO devices = SetupDiGetClassDevsW(nullptr, L"USB", nullptr,
+                                          DIGCF_PRESENT | DIGCF_ALLCLASSES);
+  if (devices != INVALID_HANDLE_VALUE) {
+    SP_DEVINFO_DATA info = {};
+    info.cbSize = sizeof(info);
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(devices, i, &info); ++i) {
+      wchar_t id[512];
+      if (!SetupDiGetDeviceInstanceIdW(devices, &info, id, DWORD(std::size(id)),
+                                       nullptr)) {
+        continue;
+      }
+      std::wstring instance(id);
+      for (auto& c : instance) {
+        c = wchar_t(std::towupper(c));
+      }
+      // The same devices Setup-Kinect.ps1 binds.
+      const bool camera =
+          StartsWith(instance, L"USB\\VID_045E&PID_02AE\\") ||
+          StartsWith(instance, L"USB\\VID_045E&PID_02BF\\") ||
+          StartsWith(instance, L"USB\\VID_045E&PID_02C4&MI_00\\");
+      const bool motor = StartsWith(instance, L"USB\\VID_045E&PID_02B0\\");
+      if (!camera && !motor) {
+        continue;
+      }
+      found.camera |= camera;
+      found.motor |= motor;
+      wchar_t service[64] = {};
+      if (!SetupDiGetDeviceRegistryPropertyW(
+              devices, &info, SPDRP_SERVICE, nullptr,
+              reinterpret_cast<BYTE*>(service),
+              sizeof(service) - sizeof(wchar_t), nullptr) ||
+          _wcsicmp(service, L"WinUSB") != 0) {
+        found.needs_driver = true;
+      }
+    }
+    SetupDiDestroyDeviceInfoList(devices);
+  }
+  // Try the sensor again when it becomes usable (plugged in, or its driver
+  // set up), not on every check.
+  const bool was_ready = hardware_.camera && !hardware_.needs_driver;
+  const bool ready = found.camera && !found.needs_driver;
+  hardware_ = found;
+  if (ready && !was_ready) {
+    // Windows restarts a device whose driver changed: give it a moment.
+    auto_start_time_ = ImGui::GetTime() + 3.0;
+  }
+#else
+  (void)starting;
+  (void)streaming;
+#endif
 }
 
 void KinectDialog::DrawPreview() {
@@ -282,7 +452,7 @@ void KinectDialog::DrawView() {
     KinectCamera::Get()->SetView(pan_, zoom_);
   }
   if (ImGui::IsItemDeactivatedAfterEdit()) {
-    cvars::nui_kinect2_zoom = zoom_;
+    SetSetting("nui_kinect2_zoom", double(zoom_));
     Save();
   }
   if (ImGui::IsItemHovered()) {
@@ -295,15 +465,15 @@ void KinectDialog::DrawView() {
     KinectCamera::Get()->SetView(pan_, zoom_);
   }
   if (ImGui::IsItemDeactivatedAfterEdit()) {
-    cvars::nui_kinect2_pan = pan_;
+    SetSetting("nui_kinect2_pan", int32_t(pan_));
     Save();
   }
   if (ImGui::Button("Reset view")) {
     pan_ = 0;
     zoom_ = 1.3f;
     KinectCamera::Get()->SetView(pan_, zoom_);
-    cvars::nui_kinect2_pan = pan_;
-    cvars::nui_kinect2_zoom = zoom_;
+    SetSetting("nui_kinect2_pan", int32_t(pan_));
+    SetSetting("nui_kinect2_zoom", double(zoom_));
     Save();
   }
 }
@@ -312,7 +482,7 @@ void KinectDialog::DrawMicrophone() {
   ImGui::Separator();
   bool enabled = cvars::nui_mic;
   if (ImGui::Checkbox("Kinect microphone", &enabled)) {
-    cvars::nui_mic = enabled;
+    SetSetting("nui_mic", enabled);
     Save();
     if (enabled) {
       KinectMicrophones::Get()->Restart();
@@ -334,7 +504,7 @@ void KinectDialog::DrawMicrophone() {
                                           : current.c_str())) {
     for (const auto& name : microphones_) {
       if (ImGui::Selectable(name.c_str(), name == current)) {
-        cvars::nui_mic_device = name;
+        SetSetting("nui_mic_device", name);
         Save();
         mics->Restart();
       }
@@ -355,10 +525,68 @@ void KinectDialog::DrawMicrophone() {
 
 void KinectDialog::InstallDriver() {
 #if XE_PLATFORM_WIN32
+  if (setup_process_) {
+    return;
+  }
   const auto script =
       xe::filesystem::GetExecutableFolder() / "kinect" / "Setup-Kinect.cmd";
-  ShellExecuteW(nullptr, L"open", script.c_str(), nullptr,
-                script.parent_path().c_str(), SW_SHOWNORMAL);
+  const auto folder = script.parent_path();
+  SHELLEXECUTEINFOW info = {};
+  info.cbSize = sizeof(info);
+  info.fMask = SEE_MASK_NOCLOSEPROCESS;
+  info.lpVerb = L"open";
+  info.lpFile = script.c_str();
+  info.lpParameters = L"-NoPause";
+  info.lpDirectory = folder.c_str();
+  info.nShow = SW_SHOWNORMAL;
+  setup_result_.clear();
+  if (ShellExecuteExW(&info) && info.hProcess) {
+    setup_process_ = info.hProcess;
+  } else {
+    setup_failed_ = true;
+    setup_result_ =
+        "The driver setup could not be started. Run Setup-Kinect.cmd in "
+        "the kinect folder.";
+  }
+#endif
+}
+
+void KinectDialog::PollDriverSetup() {
+#if XE_PLATFORM_WIN32
+  if (!setup_process_ ||
+      WaitForSingleObject(setup_process_, 0) != WAIT_OBJECT_0) {
+    return;
+  }
+  DWORD code = 1;
+  GetExitCodeProcess(setup_process_, &code);
+  CloseHandle(setup_process_);
+  setup_process_ = nullptr;
+  // Exit codes of Setup-Kinect.ps1.
+  setup_failed_ = code != 0;
+  switch (code) {
+    case 0:
+      setup_result_ = "The Kinect driver is set up.";
+      break;
+    case 2:
+      setup_result_ =
+          "The driver setup found no Kinect. Check that it is plugged in "
+          "and its adapter has power.";
+      break;
+    case 3:
+      setup_result_ =
+          "Windows did not give permission. Press the button again and "
+          "click Yes.";
+      break;
+    default:
+      setup_result_ =
+          "The driver setup did not finish. Unplug the Kinect, plug it in "
+          "again and try once more.";
+      break;
+  }
+  next_detect_time_ = 0.0;
+  if (code == 0) {
+    auto_start_time_ = ImGui::GetTime() + 3.0;
+  }
 #endif
 }
 
@@ -385,6 +613,17 @@ void KinectDialog::OnDraw(ImGuiIO& io) {
   DrawView();
   DrawMicrophone();
   ImGui::Separator();
+  if (start_note_) {
+    ImGui::TextColored(kGood,
+                       "Your Kinect works. From now on this window opens "
+                       "only from HID > Kinect...");
+  }
+  bool on_start = cvars::nui_window_on_start;
+  if (ImGui::Checkbox("Open this window when Xenia starts", &on_start)) {
+    SetSetting("nui_window_on_start", on_start);
+    start_note_ = false;
+    Save();
+  }
   ImGui::TextDisabled("Settings are saved automatically.");
   ImGui::End();
 }

@@ -9,6 +9,9 @@
 #
 #   Setup-Kinect.cmd           bind WinUSB (asks for administrator rights)
 #   Setup-Kinect.cmd -Restore  give the sensor back to its default driver
+#   -NoPause                   close without waiting for Enter when it worked
+#
+# Exit codes: 0 done, 1 failed, 2 no Kinect found, 3 no administrator rights.
 #
 # Plug the sensor in and power it before running this.
 
@@ -17,7 +20,8 @@ param([switch]$Restore, [switch]$NoPause)
 $ErrorActionPreference = 'Stop'
 
 function Finish([int]$code) {
-  if (-not $NoPause) { Read-Host 'Press Enter to close' | Out-Null }
+  # A failure always waits, so the message above can be read.
+  if (-not $NoPause -or $code -ne 0) { Read-Host 'Press Enter to close' | Out-Null }
   exit $code
 }
 
@@ -27,7 +31,13 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
   $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
   if ($Restore) { $arguments += '-Restore' }
   if ($NoPause) { $arguments += '-NoPause' }
-  $process = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList $arguments
+  try {
+    $process = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList $arguments
+  } catch {
+    Write-Host 'Windows did not give permission to set up the driver.'
+    Write-Host 'Run this again and click Yes when Windows asks.'
+    Finish 3
+  }
   exit $process.ExitCode
 }
 

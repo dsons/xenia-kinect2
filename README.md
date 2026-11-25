@@ -79,16 +79,21 @@ Then:
    [Releases](https://github.com/dsons/xenia-kinect2/releases/latest), right-click it
    and choose **Extract All...**
 2. **Plug in** the adapter's power and its USB cable (straight into the PC).
-3. **Install the driver:** in the `kinect` folder, double-click
-   `Setup-Kinect.cmd` and click **Yes**. Only needed once.
-4. **Play:** start `xenia_canary.exe`, check the Kinect under
-   **HID > Kinect...**, then open your game with **File > Open...**
+3. **Start** `xenia_canary.exe`. The Kinect window opens by itself. If it says the
+   driver needs to be set up, press **Set up Kinect driver** and click **Yes**.
+   When you see yourself in the picture, close the window.
+4. **Play:** open your game with **File > Open...**
+
+The Kinect window opens by itself only until the Kinect has worked once (or
+untick "Open this window when Xenia starts"). After that it is under
+**HID > Kinect...**
 
 **Drivers:** the only driver needed is Microsoft's WinUSB driver, which is
-already part of Windows; step 3 switches the Kinect to it. You do not need the
-Kinect for Windows SDK, the Kinect Runtime, Zadig or any other download. The
-Visual C++ runtime is included in the zip. To give the Kinect back to Microsoft's
-driver, run `Restore-Kinect.cmd` in the same folder.
+already part of Windows; the **Set up Kinect driver** button (or
+`kinect\Setup-Kinect.cmd`) switches the Kinect to it. You do not need the Kinect
+for Windows SDK, the Kinect Runtime, Zadig or any other download. The Visual C++
+runtime is included in the zip. To give the Kinect back to Microsoft's driver,
+run `kinect\Restore-Kinect.cmd`.
 
 The full guide, with troubleshooting, is
 [tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
@@ -101,7 +106,7 @@ check each part:
 
 | Part | What it is | Where it comes from |
 | --- | --- | --- |
-| Kinect driver | Microsoft's WinUSB driver | Already part of Windows (`C:\Windows\INF\winusb.inf`). `Setup-Kinect.cmd` downloads nothing: it is a short, readable script ([Setup-Kinect.ps1](tools/kinect_release/Setup-Kinect.ps1)) that tells Windows to use that driver for the Kinect. |
+| Kinect driver | Microsoft's WinUSB driver | Already part of Windows (`C:\Windows\INF\winusb.inf`). The setup button runs `Setup-Kinect.cmd`, which downloads nothing: it is a short, readable script ([Setup-Kinect.ps1](tools/kinect_release/Setup-Kinect.ps1)) that tells Windows to use that driver for the Kinect. |
 | `xenia_canary.exe` | The emulator | Built from this repository's source, which is [Xenia Canary](https://github.com/xenia-canary/xenia-canary) plus the Kinect changes. |
 | `kinect\xenia_kinect.dll` | Connects Xenia to the Kinect | Built from [tools/kinect_runtime](tools/kinect_runtime) in this repository. |
 | `kinect\freenect.dll` | libfreenect: talks to a Kinect for Xbox 360 | The OpenKinect project, [github.com/OpenKinect/libfreenect](https://github.com/OpenKinect/libfreenect), commit `09a1f09`, unmodified. |

@@ -199,6 +199,10 @@ struct KinectCamera::Impl {
     bool reported_loss = false;
     uint32_t counted = 0;
     auto count_start = std::chrono::steady_clock::now();
+    // A sensor opened while Windows is still restarting it (for example just
+    // after its driver changed) can stay silent; open it again.
+    constexpr auto kStallTimeout = std::chrono::seconds(6);
+    auto last_frame = count_start;
     while (!stop) {
       int result = read(rgb_in.data(), depth_in.data(), 250);
       auto now = std::chrono::steady_clock::now();
@@ -209,14 +213,22 @@ struct KinectCamera::Impl {
         counted = 0;
         count_start = now;
       }
-      if (result == kRuntimeTimeout) {
+      const bool stalled =
+          result == kRuntimeTimeout && now - last_frame >= kStallTimeout;
+      if (result == kRuntimeTimeout && !stalled) {
         continue;
       }
       if (result != kRuntimeOk) {
-        // Unplugged or failed: try to open it again every two seconds.
+        // Unplugged, failed or silent: try to open it again every two
+        // seconds.
         if (!reported_loss) {
           reported_loss = true;
-          XELOGW("Kinect: lost the sensor ({}), reconnecting", result);
+          if (stalled) {
+            XELOGW("Kinect: no frames for {} s, reconnecting",
+                   kStallTimeout.count());
+          } else {
+            XELOGW("Kinect: lost the sensor ({}), reconnecting", result);
+          }
           SetMessage("The Kinect stopped responding. Reconnecting...");
         }
         fps = 0.0f;
@@ -230,9 +242,11 @@ struct KinectCamera::Impl {
           SetMessage("");
           reported_loss = false;
         }
+        last_frame = std::chrono::steady_clock::now();
         continue;
       }
       ++counted;
+      last_frame = now;
       if (convert) {
         if (pan != configured_pan || zoom != configured_zoom) {
           configured_pan = pan;

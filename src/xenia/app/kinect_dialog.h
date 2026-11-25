@@ -40,9 +40,19 @@ class KinectDialog final : public ui::ImGuiDialog {
   void DrawPreview();
   void DrawView();
   void DrawMicrophone();
+  void DrawSetup(bool starting, bool streaming);
+  void DetectHardware(bool starting, bool streaming);
   void InstallDriver();
+  void PollDriverSetup();
   void Save();
   bool TitleRunning() const;
+
+  // Kinect devices Windows sees, whether or not they can be opened.
+  struct Hardware {
+    bool camera = false;  // a Kinect camera (either kind)
+    bool motor = false;   // a Kinect for Xbox 360's motor
+    bool needs_driver = false;
+  };
 
   EmulatorWindow& emulator_window_;
 
@@ -62,6 +72,14 @@ class KinectDialog final : public ui::ImGuiDialog {
   float zoom_ = 1.3f;
 
   std::vector<std::string> microphones_;
+
+  Hardware hardware_;
+  double next_detect_time_ = 0.0;
+  double auto_start_time_ = 0.0;
+  void* setup_process_ = nullptr;
+  std::string setup_result_;
+  bool setup_failed_ = false;
+  bool start_note_ = false;
 };
 
 }  // namespace app

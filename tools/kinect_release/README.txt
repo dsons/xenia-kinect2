@@ -15,7 +15,7 @@ choice. Report problems with this version at github.com/dsons/xenia-kinect2.
 QUICK SETUP
 -----------
 
-Do steps 1 to 4 once. After that, just do step 5.
+Do steps 1 to 4 once. After that, just start xenia_canary.exe and play.
 
 
 STEP 1. Check what you need
@@ -55,36 +55,30 @@ STEP 3. Plug in the Kinect
   the adapter should come on.
 
 
-STEP 4. Install the Kinect driver
+STEP 4. Start Xenia and set up the Kinect
 
-  Open the "kinect" folder and double-click "Setup-Kinect.cmd".
+  Double-click "xenia_canary.exe". The Kinect window opens by itself.
 
-  Windows asks "Do you want to allow this app to make changes to your
-  device?". Click "Yes". A window shows the progress. When it says "Done.
-  The Kinect is ready for Xenia.", press Enter to close it.
+  If it says "Its driver needs to be set up once", press the green "Set up
+  Kinect driver" button. Windows asks "Do you want to allow this app to
+  make changes to your device?": click "Yes". A moment later the window
+  connects to the Kinect.
 
-  If Windows shows "Windows protected your PC", click "More info", then
-  "Run anyway". Windows says this about any program it does not know yet.
-
-  You only need to do this once. If you later plug the Kinect into a
-  different USB port, do it again.
-
-  This is the only driver you need. It uses the WinUSB driver that is part
-  of Windows, so nothing is downloaded. You do not need the Kinect for
-  Windows SDK, the Kinect Runtime or Zadig.
-
-
-STEP 5. Test the Kinect and play
-
-  Double-click "xenia_canary.exe".
-
-  To check the Kinect works: open the "HID" menu at the top and choose
-  "Kinect...". You should see yourself and a colourful depth picture. Stand
+  When it works, you see yourself and a colourful depth picture. Stand
   back until your whole body is in the picture and the text says "Good
-  distance". Close the Kinect window when you are done.
+  distance". Then close the Kinect window. It will not open by itself
+  again; you can always find it in the "HID" menu under "Kinect...".
 
-  To play: open the "File" menu, choose "Open...", and pick your game (a
-  disc image such as an .iso file, or a game's default.xex).
+  The driver is the WinUSB driver that is part of Windows, so nothing is
+  downloaded. You do not need the Kinect for Windows SDK, the Kinect
+  Runtime or Zadig. (Instead of the button, you can also double-click
+  "Setup-Kinect.cmd" in the kinect folder.)
+
+
+PLAY
+
+  Open the "File" menu, choose "Open...", and pick your game (a disc image
+  such as an .iso file, or a game's default.xex).
 
   Kinect games want a player profile. Xenia makes one called "Player" and
   signs it in for you.
@@ -111,12 +105,15 @@ IF SOMETHING DOES NOT WORK
   - Is the adapter plugged into the wall, and is its light on?
   - Plug the USB cable straight into the PC, and try another port. For a
     Kinect for Xbox One use a USB 3.0 port.
-  - Run "Setup-Kinect.cmd" in the kinect folder again, then press "Retry" in
-    HID > Kinect...
+  - In HID > Kinect..., press "Set up driver again", then "Retry".
+
+"Kinect for Xbox 360 found, but its camera is off"
+  The Kinect gets power from USB for its motor only. Plug its power supply
+  into the wall.
 
 "The Kinect is in use by another program"
   Close other Kinect programs (for example Kinect Studio or camera apps),
-  then press "Retry".
+  then press "Retry" in HID > Kinect...
 
 The game says to connect a Kinect
   Open HID > Kinect... and check that it says "connected". If it does not,
@@ -188,6 +185,8 @@ xenia-canary.config.toml:
   nui_camera_mirror  false (default). Mirror the picture games see.
   nui_mic            true (default): emulate the Kinect microphones.
   nui_mic_device     Part of the name of the microphone to use.
+  nui_window_on_start  true: open the Kinect window when Xenia starts.
+                     Turned off by itself the first time a Kinect works.
 
 In the [Network] section:
 

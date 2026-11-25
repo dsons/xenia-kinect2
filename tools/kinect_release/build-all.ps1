@@ -104,6 +104,16 @@ if ($missing.Count -gt 0) {
   }
 }
 $env:Path = "$(Join-Path $env:VULKAN_SDK 'Bin');$env:Path"
+# With several MSVC toolsets installed, an older one can be picked up; use the
+# newest.
+if (-not $env:XE_VCVARS_VER) {
+  $toolsets = @(Get-ChildItem (Join-Path (Find-VisualStudio) 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_.Name })
+  if ($toolsets.Count -gt 1) {
+    $env:XE_VCVARS_VER = ($toolsets[-1].Name -split '\.')[0..1] -join '.'
+    Write-Host "Using MSVC $($env:XE_VCVARS_VER)."
+  }
+}
 Write-Host 'All tools found.'
 
 if (-not (Test-Path (Join-Path $root '.git'))) {

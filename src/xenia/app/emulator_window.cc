@@ -156,7 +156,8 @@ DEFINE_bool(disable_doubleclick_fullscreen, false,
             "causes Xenia to enter fullscreen mode.",
             "General");
 DEFINE_bool(nui_window_on_start, false,
-            "Open the Kinect window (HID > Kinect...) when Xenia starts.",
+            "Open the Kinect window (HID > Kinect...) when Xenia starts. "
+            "Turned off by itself the first time a Kinect works.",
             "NUI");
 
 namespace xe {
