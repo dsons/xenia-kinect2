@@ -26,6 +26,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Name the build after the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        # Xenia's title bar shows the branch, which a tag checkout lacks.
+        run: git checkout -B "xenia-kinect2-$($env:GITHUB_REF_NAME.TrimStart('v'))"
+
       - name: Cache Vulkan SDK
         id: cache-vulkan-sdk
         uses: actions/cache@v6
