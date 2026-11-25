@@ -8,7 +8,7 @@
 
 <p align="center">
 Play Xbox 360 Kinect games on a Windows PC with a real Kinect.<br>
-A fork of the Xenia Canary Xbox 360 emulator.
+A fork of the <a href="https://github.com/xenia-canary/xenia-canary">Xenia Canary</a> Xbox 360 emulator.
 </p>
 
 <p align="center">
@@ -33,8 +33,12 @@ stop at "connect a Kinect" or run without the player's movements.
 | Settings and saves | Kept in the program's own folder (portable) | Kept in Documents |
 | Updates | New versions here, less often | Updated almost daily |
 
-This fork is based on Xenia Canary from October 2026 (commit `b083312b8`) and does
-not update itself. **For games that do not use Kinect, use the official
+**About this repository:** it is a fork of
+[xenia-canary/xenia-canary](https://github.com/xenia-canary/xenia-canary), with
+Xenia Canary's full history, credit and license, kept as a standalone
+repository rather than a GitHub fork so that it shows up in GitHub search. It
+is based on Xenia Canary from October 2026 (commit `b083312b8`) and does not
+update itself. **For games that do not use Kinect, use the official
 [Xenia Canary](https://github.com/xenia-canary/xenia-canary)**: it is newer. Please
 report problems with Kinect games here, not to the Xenia Canary team.
 
