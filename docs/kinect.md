@@ -95,7 +95,7 @@ adapter), so the log records them in detail:
 
 ## Building a release
 
-`Build-Xenia-Kinect2.cmd` (repository root) is the one-step build for players: run
+`For-Developers-Build-From-Source.cmd` (repository root) is the one-step build for anyone who wants their own build: run
 from an empty folder it clones this repository to `C:\xenia-kinect2-build`, builds
 it and copies the zip next to itself; run from a checkout it builds that
 checkout. It calls `tools/kinect_release/build-all.ps1`, which checks for Git,
@@ -120,7 +120,7 @@ the commit (`v1.2.3` gives `1.2.3`), or `custom-<commit>`.
 The **Kinect release** GitHub Actions workflow (`.github/workflows/Kinect_release.yml`)
 runs the same script: started by hand it uploads the zip as an artifact, and a
 pushed `v*` tag also publishes a release with the zip, its checksum,
-`Build-Xenia-Kinect2.cmd` and `tools/kinect_release/RELEASE_NOTES.md`.
+`For-Developers-Build-From-Source.cmd` and `tools/kinect_release/RELEASE_NOTES.md`.
 
 ## Settings
 

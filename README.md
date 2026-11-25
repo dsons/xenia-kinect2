@@ -271,11 +271,11 @@ You do not need to build anything to play: the download above is ready to use.
 To make your own build anyway, pick one:
 
 - **On your PC:** download
-  [Build-Xenia-Kinect2.cmd](https://github.com/dsons/xenia-kinect2/releases/latest/download/Build-Xenia-Kinect2.cmd),
+  [For-Developers-Build-From-Source.cmd](https://github.com/dsons/xenia-kinect2/releases/latest/download/For-Developers-Build-From-Source.cmd),
   put it in an empty folder and double-click it. It offers to install what it
   needs (Git, Python, Visual Studio Build Tools and the Vulkan SDK, all free; a few
   gigabytes), downloads the source to `C:\xenia-kinect2-build` and builds it. When
-  it finishes, the zip is next to `Build-Xenia-Kinect2.cmd`. The first build takes
+  it finishes, the zip is next to `For-Developers-Build-From-Source.cmd`. The first build takes
   about half an hour; later ones are quicker.
 - **On GitHub, with nothing installed:** sign in to GitHub, press **Fork** at the
   top of this page, then open your fork's **Actions** tab. The first time,

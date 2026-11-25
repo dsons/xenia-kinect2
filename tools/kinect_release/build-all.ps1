@@ -1,5 +1,5 @@
 # Builds the whole Kinect release from this source folder: Xenia, the Kinect
-# runtime and the zip. Build-Xenia-Kinect2.cmd runs it; so does the
+# runtime and the zip. For-Developers-Build-From-Source.cmd runs it; so does the
 # "Kinect release" GitHub Actions workflow.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\kinect_release\build-all.ps1
@@ -117,7 +117,7 @@ if (-not $env:XE_VCVARS_VER) {
 Write-Host 'All tools found.'
 
 if (-not (Test-Path (Join-Path $root '.git'))) {
-  throw 'This folder is not a Git copy of the source. Run Build-Xenia-Kinect2.cmd from an empty folder instead: it downloads the source for you.'
+  throw 'This folder is not a Git copy of the source. Run For-Developers-Build-From-Source.cmd from an empty folder instead: it downloads the source for you.'
 }
 
 if (-not $Version) {

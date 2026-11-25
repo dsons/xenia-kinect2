@@ -10,4 +10,4 @@ This is a fork of Xenia Canary with Kinect support, not the official Xenia Canar
 
 Found a problem? Please [report it](https://github.com/dsons/xenia-kinect2/issues/new/choose).
 
-`Build-Xenia-Kinect2.cmd` builds the same zip from source on your own PC (optional). The `.sha256` file is the zip's checksum.
+Not needed to play: `For-Developers-Build-From-Source.cmd` is only for building the same zip yourself from the source code. The `.sha256` file is the zip's checksum.

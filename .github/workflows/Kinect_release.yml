@@ -69,5 +69,5 @@ jobs:
           # always gets the newest version (the README's download button).
           $zip = Get-ChildItem build\release -Filter 'xenia-kinect2-*-windows-x64.zip' | Select-Object -First 1
           Copy-Item $zip.FullName build\release\xenia-kinect2-windows-x64.zip
-          $files = @(Get-ChildItem build\release -Filter 'xenia-kinect2-*.zip*' | ForEach-Object FullName) + 'Build-Xenia-Kinect2.cmd'
+          $files = @(Get-ChildItem build\release -Filter 'xenia-kinect2-*.zip*' | ForEach-Object FullName) + 'For-Developers-Build-From-Source.cmd'
           gh release create $env:TAG @files --repo ${{ github.repository }} --title "Xenia with Kinect $($env:TAG.TrimStart('v'))" --notes-file tools\kinect_release\RELEASE_NOTES.md --latest
