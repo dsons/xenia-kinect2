@@ -520,28 +520,31 @@ void KinectDialog::DrawPreview() {
   ImGui::Image(reinterpret_cast<ImTextureID>(color_texture_.get()), size);
   ImGui::SameLine();
   ImGui::Image(reinterpret_cast<ImTextureID>(depth_texture_.get()), size);
-  DrawCalibration();
+  DrawPosition();
 }
 
-void KinectDialog::DrawCalibration() {
-  if (!calibrating_) {
-    if (ImGui::Button("Calibrate")) {
-      calibrating_ = true;
-      good_since_ = -1.0;
-      XELOGI("Kinect window: calibration started");
-    }
-    ImGui::SameLine();
-    ImGui::TextUnformatted(
-        "Check where you stand (do this if a game does not "
-        "see you or take your moves).");
-    return;
-  }
+void KinectDialog::DrawPosition() {
   ImGui::TextUnformatted(
       "Stand where you will play, facing the Kinect, with your whole body in "
       "the picture, head to feet.");
+  // A good position: the whole body in view at a good distance, held 2 s.
+  const bool good = framing_ == Framing::kGood && center_distance_m_ >= 1.5f &&
+                    center_distance_m_ <= 3.2f;
+  if (!good) {
+    good_since_ = -1.0;
+  } else if (good_since_ < 0.0) {
+    good_since_ = ImGui::GetTime();
+  }
+  if (good && ImGui::GetTime() - good_since_ >= 2.0) {
+    ImGui::SetWindowFontScale(1.25f);
+    ImGui::TextColored(kGood, "Good position. You're ready to play!");
+    ImGui::SetWindowFontScale(1.0f);
+    return;
+  }
   if (center_distance_m_ > 0.0f) {
-    const bool good = center_distance_m_ >= 1.5f && center_distance_m_ <= 3.2f;
-    ImGui::TextColored(good ? kGood : kWarn,
+    const bool near_ok =
+        center_distance_m_ >= 1.5f && center_distance_m_ <= 3.2f;
+    ImGui::TextColored(near_ok ? kGood : kWarn,
                        "Nearest in the middle: %.1f m (%.0f ft). %s",
                        center_distance_m_, center_distance_m_ * 3.28f,
                        center_distance_m_ < 1.5f   ? "Step back."
@@ -569,35 +572,6 @@ void KinectDialog::DrawCalibration() {
       break;
     default:
       break;
-  }
-  // A good position: the whole body in view at a good distance, held 2 s.
-  const bool good = framing_ == Framing::kGood && center_distance_m_ >= 1.5f &&
-                    center_distance_m_ <= 3.2f;
-  if (!good) {
-    good_since_ = -1.0;
-  } else if (good_since_ < 0.0) {
-    good_since_ = ImGui::GetTime();
-  }
-  if (ImGui::Button("Cancel")) {
-    calibrating_ = false;
-    return;
-  }
-  if (good && ImGui::GetTime() - good_since_ >= 2.0) {
-    ImGui::OpenPopup("Good position");
-  }
-  if (ImGui::BeginPopupModal("Good position", nullptr,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::SetWindowFontScale(1.3f);
-    ImGui::TextColored(kGood, "Good position. You're ready to play!");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::TextUnformatted("Play from this spot.");
-    if (ImGui::Button("OK", ImVec2(120, 0))) {
-      XELOGI("Kinect window: calibration done, good position");
-      calibrating_ = false;
-      close_requested_ = true;
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::EndPopup();
   }
 }
 
@@ -778,12 +752,6 @@ void KinectDialog::OnDraw(ImGuiIO& io) {
   DrawPreview();
   DrawView();
   DrawMicrophone();
-  if (close_requested_) {
-    Close();
-    ImGui::End();
-    emulator_window_.ToggleKinectDialog();
-    return;
-  }
   ImGui::Separator();
   bool on_start = cvars::nui_window_on_start;
   if (ImGui::Checkbox("Open this window when Xenia starts", &on_start)) {

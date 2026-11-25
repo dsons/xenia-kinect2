@@ -1,6 +1,6 @@
 Play Xbox 360 Kinect games on a Windows PC with a real Kinect for Xbox 360 or Kinect for Xbox One.
 
-**To play, download `xenia-kinect2-...-windows-x64.zip` below.** Unzip it, plug in the Kinect and start `xenia_canary.exe`: the Kinect window opens and sets up the driver with one button. README.txt inside the zip walks you through it, including which adapter your Kinect needs.
+**To play, download `xenia-kinect2-windows-x64.zip` below** (the same as the zip with the version number in its name). Unzip it, plug in the Kinect and start `xenia_canary.exe`: the Kinect window opens and sets up the driver with one button. README.txt inside the zip walks you through it, including which adapter your Kinect needs.
 
 - The only driver needed is the WinUSB driver built into Windows; the **Set up Kinect driver** button switches the Kinect to it. No Kinect SDK or other download is needed.
 - Check the Kinect under **HID > Kinect...** before starting a game: it must see you from head to feet, with nothing in front of your legs.

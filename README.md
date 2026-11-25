@@ -7,15 +7,167 @@
 <h1 align="center">Xenia with Kinect</h1>
 
 <p align="center">
-Play Xbox 360 Kinect games on a Windows PC with a real Kinect.<br>
-A fork of the <a href="https://github.com/xenia-canary/xenia-canary">Xenia Canary</a> Xbox 360 emulator.
+Play your Xbox 360 Kinect games on a Windows PC, with a real Kinect.<br>
+Free. Based on the <a href="https://github.com/xenia-canary/xenia-canary">Xenia Canary</a> Xbox 360 emulator.
 </p>
 
 <p align="center">
-<a href="https://github.com/dsons/xenia-kinect2/releases/latest"><b>Download the latest version</b></a>
+<a href="https://github.com/dsons/xenia-kinect2/releases/latest/download/xenia-kinect2-windows-x64.zip"><b>⬇ Download for Windows</b></a>
 </p>
 
-## What this is, and how it differs from Xenia Canary
+<p align="center">
+<a href="#1-what-you-need">What you need</a> ·
+<a href="#2-set-it-up">Set it up</a> ·
+<a href="#3-get-in-a-good-position">Get in a good position</a> ·
+<a href="#4-play">Play</a> ·
+<a href="#something-not-working">Something not working?</a> ·
+<a href="#which-games-work">Which games work</a>
+</p>
+
+## 1. What you need
+
+- **A Windows 10 or Windows 11 computer** with a graphics card made in roughly the
+  last eight years (it needs DirectX 12; most gaming PCs and laptops have it).
+  Update the graphics card's driver first, from the NVIDIA, AMD or Intel website.
+- **A Kinect**, either kind:
+  - **Kinect for Xbox 360** (the older, smaller one with a tilting base), and a
+    **Kinect power supply** for it (sold as "Kinect AC adapter for Xbox 360"; it
+    has a wall plug and a normal USB plug).
+  - **Kinect for Xbox One** (the larger, newer one), and the **Kinect Adapter for
+    Windows**. Your computer needs a USB 3.0 port (usually blue inside, or marked
+    "SS").
+  - A "Kinect for Windows" works the same as the Xbox one it looks like.
+- **Your own Kinect games**, copied from your own discs (see
+  [Your own games only](#your-own-games-only)). Games are not included.
+
+Nothing else: no Microsoft Kinect software, no other downloads.
+
+## 2. Set it up
+
+You only do this once.
+
+1. **Download** the zip file with the button at the top of this page
+   ([this link](https://github.com/dsons/xenia-kinect2/releases/latest/download/xenia-kinect2-windows-x64.zip)).
+2. **Unzip it:** right-click the downloaded file, choose **Extract All...**, then
+   **Extract**. Put the folder somewhere easy to find, like your Desktop. Don't
+   run anything from inside the zip.
+3. **Plug in the Kinect:** its adapter into the wall, and the adapter's USB plug
+   straight into your computer (not into a USB hub). A light on the Kinect or the
+   adapter comes on.
+4. **Open the folder and double-click `xenia_canary.exe`** (Windows may show it
+   as just **xenia_canary**, with the Xenia icon). If Windows says "Windows protected your PC", click **More info**, then **Run
+   anyway** (Windows says this about programs it doesn't know yet).
+5. **The Kinect window opens by itself.** If it says the Kinect's driver needs to
+   be set up, click the green **Set up Kinect driver** button, then **Yes** when
+   Windows asks for permission. A few seconds later you see yourself in the
+   window.
+
+## 3. Get in a good position
+
+The Kinect has to see **all of you, head to feet**, with nothing in front of your
+legs (like a coffee table). If it can't, games may see you but not take your
+moves. The Kinect window helps you get it right:
+
+1. Stand where you will play, facing the Kinect.
+2. Read the lines under the two pictures and do what they say:
+
+   | The window says | What to do |
+   | --- | --- |
+   | Your feet are out of the picture. | Tilt the Kinect down a little, or stand further back. |
+   | Your head is out of the picture. | Tilt the Kinect up a little, or stand further back. |
+   | Something is in front of your legs. | Move the table or chair out of the way, or move the Kinect. |
+   | Step back. / Come closer. | Move until it says "Good distance" (about 2 to 3 metres, 6 to 10 feet). |
+
+3. When it says **"Good position. You're ready to play!"**, close the Kinect
+   window with the **X** in its top-right corner, and play.
+
+**Kinect for Xbox One in a small room?** In the same window, move the **Step
+back** slider to the right: games then see you as if you stood further away.
+
+Do this again whenever you move furniture or the Kinect, or when a game doesn't
+see you. The Kinect window is always in the **HID** menu at the top of the Xenia
+window: **HID > Kinect...**
+
+## 4. Play
+
+1. Click the **File** menu at the top of the Xenia window, then **Open...**
+2. Pick your game: a copy of your game disc (usually a file ending in `.iso`).
+3. The game fills the screen. Press **Esc** to get the window and its menus back.
+
+Next time, just double-click `xenia_canary.exe` and play.
+
+## Something not working?
+
+| What happens | What to do |
+| --- | --- |
+| The Kinect window says **No Kinect found** | Check the adapter is plugged into the wall and its light is on. Plug the USB cable straight into the computer, or try another USB port (for a Kinect for Xbox One, a USB 3.0 port). Then click **Retry**. |
+| The window says the driver needs to be set up | Click **Set up Kinect driver**, then **Yes**. |
+| The window says the Kinect is in use by another program | Close other Kinect or camera programs, then click **Retry**. |
+| A game says to connect a Kinect | Open **HID > Kinect...** and fix what it says, then restart the game. |
+| A game doesn't notice you, or doesn't take your moves | Open **HID > Kinect...** and move or adjust until it says "Good position" ([step 3](#3-get-in-a-good-position)). |
+| The picture is choppy (Kinect for Xbox One) | Try another USB 3.0 port, ideally one on the back of the computer. |
+| Voice commands don't work | In the Kinect window, check the microphone level moves when you speak. A Kinect for Xbox 360's microphone can't be used; pick a headset or webcam microphone instead. |
+| Windows asks if Xenia may use the network | Click **Cancel**. Kinect games don't need it. |
+| Other Kinect software stopped working | Double-click `Restore-Kinect.cmd` in the `kinect` folder. To play here again, click **Set up Kinect driver** in the Kinect window. |
+
+**Still stuck? Please tell us**, even if you're not sure it's a bug:
+**[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
+(you need a free GitHub account). A short form asks which Kinect and game you
+used and what happened. Please also attach the log files: in the Kinect window
+click **Show log files**, then drag `xenia.log` (and `xenia.previous.log` if the
+problem happened the time before) into the form. They tell us exactly what went
+wrong, so we don't have to ask you lots of questions.
+
+Reports that a game works, or ideas, are welcome too. Problems with games that
+don't use Kinect belong to the official
+[Xenia Canary](https://github.com/xenia-canary/xenia-canary), but please don't
+report Kinect problems there: this version isn't theirs.
+
+The download also contains a full guide, **README.txt**, with all of this and
+more.
+
+## Which games work
+
+| Game | How far it has been tested |
+| --- | --- |
+| Kinect Adventures! | Plays |
+| Kinect Sports: Season Two | Plays |
+| Fruit Ninja Kinect | Plays |
+| Kinect Sports | Starts a sport |
+| Dance Central 3 | Reaches the main menu |
+| Rise of Nightmares | Reaches its menus |
+| Just Dance 4 | Reaches dancer selection (needs the Kinect to see you head to feet); songs not tried yet |
+| Kinect Star Wars | Reaches its start screen; not tried further yet |
+| The Gunstringer | Reaches its start screen; not tried further yet |
+| Disney Fantasia: Music Evolved | Reaches its start screen; not tried further yet |
+| Child of Eden | Reaches its start screen; not tried further yet |
+| Kinect Party | Reaches its start screen; not tried further yet |
+
+Other Kinect games may work too. If you get further in one of these, or another
+game works, please [tell us](https://github.com/dsons/xenia-kinect2/issues/new/choose).
+Settings these games need are included and applied automatically.
+
+## Your own games only
+
+This project is for **preserving and playing Xbox 360 Kinect games you own**,
+from copies you made yourself of your own discs or your own console's downloads.
+It does not include any games, and it does not help anyone get them:
+
+- No game files, disc images, keys or download links are included, and none may
+  be posted in this project's reports or discussions (they will be deleted).
+- Questions about where to get games will not be answered.
+- Some Xbox Live Arcade games run as their trial unless `license_mask = 1` is set
+  in `xenia-canary.config.toml`. Only do that for games you bought in full.
+
+Xenia, Kinect support included, is built from public information and the reverse
+engineering of legally purchased hardware and software.
+
+## For technical readers
+
+Everything below is optional reading. Click a heading to open it.
+
+<details>
+<summary><b>How this differs from the official Xenia Canary</b></summary>
 
 This is **not** the official Xenia Canary. It is Xenia Canary with Kinect
 support added. The official Xenia Canary cannot use a Kinect: Kinect games in it
@@ -42,7 +194,10 @@ update itself. **For games that do not use Kinect, use the official
 [Xenia Canary](https://github.com/xenia-canary/xenia-canary)**: it is newer. Please
 report problems with Kinect games here, not to the Xenia Canary team.
 
-### Why a separate fork, not a pull request to Xenia Canary?
+</details>
+
+<details>
+<summary><b>Why a separate fork, not a pull request to Xenia Canary?</b></summary>
 
 Because of how it was made: most of the Kinect code in this fork was written
 with an AI assistant (Claude, by Anthropic) and tested on real Kinect sensors.
@@ -52,160 +207,23 @@ is offered as its own fork instead of asking them to take it on. If the Xenia
 team or anyone else wants to bring parts of it into Xenia Canary, they are
 welcome to: it uses the same BSD license.
 
-## Tested Kinect games
+</details>
 
-How far each game has been tested. Their settings are in
-[tools/kinect_release/config](tools/kinect_release/config), and two of them also
-need a game fix from [tools/kinect_release/patches](tools/kinect_release/patches).
-Both are included in the download and applied automatically.
+<details>
+<summary><b>Drivers</b></summary>
 
-| Game | Title ID | Status |
-| --- | --- | --- |
-| Kinect Adventures! | 4D5308ED | Plays |
-| Kinect Sports: Season Two | 4D5309D6 | Plays |
-| Fruit Ninja Kinect | 58410B79 | Plays |
-| Kinect Sports | 4D5308C9 | Starts a sport |
-| Dance Central 3 | 373307D9 | Reaches the main menu (needs its game fix) |
-| Rise of Nightmares | 53450846 | Reaches its menus |
-| Kinect Star Wars | 4D53090E | Reaches its Kinect start screen; not tried further yet |
-| The Gunstringer | 4D5309DF | Reaches its Kinect start screen; not tried further yet |
-| Disney Fantasia: Music Evolved | 42560824 | Reaches its Kinect start screen; not tried further yet |
-| Child of Eden | 5553084C | Reaches its Kinect start screen; not tried further yet |
-| Kinect Party | 5841125C | Reaches its Kinect start screen (needs its game fix); not tried further yet |
-| Just Dance 4 | 555308B5 | Gets past its "Raise hand!" start step and into dancer selection once the Kinect sees your whole body (head to feet); songs not tried yet |
+The only driver needed is Microsoft's WinUSB driver, which is part of Windows.
+The **Set up Kinect driver** button runs `kinect\Setup-Kinect.cmd`, which tells
+Windows to use WinUSB for the Kinect (the Kinect for Xbox 360's camera and motor,
+the Kinect for Xbox One's sensor). The Kinect for Windows SDK, the Kinect Runtime
+and Zadig are not used. `kinect\Restore-Kinect.cmd` undoes it. If Windows Update
+or Microsoft's Kinect software later switches the Kinect to another driver, the
+Kinect window notices and offers the button again.
 
-Other Kinect games may work too, but have not been tried. If you get further in
-any of these, or another game works, please
-[say so](https://github.com/dsons/xenia-kinect2/issues/new/choose). Games are
-not included: use your own copies.
+</details>
 
-## Quick setup
-
-You need:
-
-- A Windows 10 or 11 PC (64-bit) with a DirectX 12 graphics card. Update your
-  graphics driver first (from NVIDIA, AMD or Intel).
-- A Kinect and the adapter that connects it to a PC:
-  - **Kinect for Xbox 360:** a *Kinect power supply* (wall plug + USB).
-  - **Kinect for Xbox One:** the *Kinect Adapter for Windows* and a USB 3.0 port.
-
-Then:
-
-1. **Download** the latest `xenia-kinect2-...-windows-x64.zip` from
-   [Releases](https://github.com/dsons/xenia-kinect2/releases/latest), right-click it
-   and choose **Extract All...**
-2. **Plug in** the adapter's power and its USB cable (straight into the PC).
-3. **Start** `xenia_canary.exe`. The Kinect window opens by itself. If it says the
-   driver needs to be set up, press **Set up Kinect driver** and click **Yes**.
-   Press **Calibrate** and follow it until it says **Good position**, then press
-   **OK** (see [Set up where you stand](#set-up-where-you-stand-calibration)).
-4. **Play:** open your game with **File > Open...** It plays fullscreen; **Esc**
-   brings the window back, **F11** toggles fullscreen.
-
-The Kinect window opens every time Xenia starts with a Kinect plugged in, so you
-can check where you stand before choosing a game (untick "Open this window when
-Xenia starts" to stop it). Started with a game, from a shortcut or a game
-launcher, Xenia goes straight into the game. The window is always under
-**HID > Kinect...**
-
-**Drivers:** the only driver needed is Microsoft's WinUSB driver, which is
-already part of Windows; the **Set up Kinect driver** button (or
-`kinect\Setup-Kinect.cmd`) switches the Kinect to it. You do not need the Kinect
-for Windows SDK, the Kinect Runtime, Zadig or any other download. The Visual C++
-runtime is included in the zip. To undo the driver setup (for example to use
-other Kinect software again), run `kinect\Restore-Kinect.cmd`.
-
-**Most important for playing:** the Kinect has to see you from head to feet, with
-nothing (like a coffee table) in front of your legs. Dance games compare your
-whole body to the dancer on screen and will not take your poses if your feet are
-hidden. Check it with **Calibrate** in **HID > Kinect...**
-
-The full guide, with troubleshooting, is
-[tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
-the download as README.txt).
-
-## Set up where you stand (calibration)
-
-Do this the first time, after moving furniture or the Kinect, and **whenever a
-game does not see you or does not take your moves**. It takes a minute.
-
-1. Open the **Kinect window**: it opens by itself when you start
-   `xenia_canary.exe` with a Kinect plugged in; otherwise use the menu
-   **HID > Kinect...** (press **Esc** first if a game is fullscreen).
-2. Press **Calibrate**.
-3. Stand where you will play, facing the Kinect, and do what the window says:
-
-   | The Kinect window says | Do this |
-   | --- | --- |
-   | Your feet are out of the picture. | Tilt the Kinect down a little, or stand further back. |
-   | Your head is out of the picture. | Tilt the Kinect up a little, or stand further back. |
-   | Something is in front of your legs. | Move the coffee table or chair, or move the Kinect so it sees your feet. |
-   | Step back. / Come closer. | Move until it says "Good distance". |
-
-4. When it pops up **"Good position. You're ready to play!"**, press **OK** and
-   play from that spot.
-
-**Kinect for Xbox One only:** in a small room, raise **Step back** in the same
-window (games see you as if you stood further away). If you cannot stand in the
-middle of the room, use **Shift sideways**.
-
-Good to know:
-
-- Games cannot tilt your Kinect for you (on a console they could), so aim it by
-  hand: just above or below the TV, pointing at where you stand.
-- Dance games (Just Dance, Dance Central) compare your **whole body** to the
-  dancer. If your feet are hidden they will see you but not take your poses.
-- A hand held against your face or chest is hard for games to see; keep your
-  hands a little away from your body.
-- Avoid standing in front of a bright window.
-
-| A game... | Usually means | Fix |
-| --- | --- | --- |
-| says to connect a Kinect | the Kinect is not working | Open the Kinect window; follow what it says (driver, power, USB). |
-| does not notice you | you are out of view or too far | Press **Calibrate** in the Kinect window. |
-| sees you but does not take a pose | feet or head out of view, or something in front of your legs | Press **Calibrate** in the Kinect window. |
-| loses your hand | hand against your body or out of the picture | Keep hands away from your body and inside the picture. |
-| is choppy (Kinect for Xbox One) | a slow USB port | Use another USB 3.0 port, ideally on the back of the PC. |
-
-## Found a problem?
-
-If a game does not see you or does not take your moves, first open
-**HID > Kinect...** and press **Calibrate**
-([Set up where you stand](#set-up-where-you-stand-calibration)); it fixes most
-Kinect problems. Otherwise, please tell us, even if you are not sure it is a bug:
-**[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
-(a free GitHub account is needed). A short form asks which Kinect and game you
-used and what happened. Please attach the log files: they record the Kinect, its
-driver and USB port, and what Xenia did, so the problem can usually be found
-without more questions. In **HID > Kinect...** press **Show log files**, then
-drag these into the form:
-
-- `xenia.log`: the last time Xenia ran. If the problem happened in an earlier
-  run, `xenia.previous.log` is the run before it.
-- `kinect\Setup-Kinect.log`, if the driver setup did not work. Ideas and reports that another Kinect game works are welcome too. You can
-see what others have reported on the
-[Issues page](https://github.com/dsons/xenia-kinect2/issues).
-
-Problems with games that do not use Kinect belong to the official
-[Xenia Canary](https://github.com/xenia-canary/xenia-canary) instead, but please
-don't report Kinect problems to the Xenia Canary team: this fork is not theirs.
-
-## Legal: your own games only
-
-This project is for **preserving and playing Xbox 360 Kinect games you own**,
-from copies you made yourself of your own discs or your own console's
-downloads. It does not include any games, and it does not help anyone get them:
-
-- No game files, disc images, keys or download links are included, and none may
-  be posted in this project's issues or discussions (they will be deleted).
-- Questions about where to get games will not be answered.
-- Some Xbox Live Arcade games run as their trial unless `license_mask = 1` is
-  set. Only use that for games you bought in full.
-
-Xenia, Kinect support included, is built from public information and the
-reverse engineering of legally purchased hardware and software.
-
-## Where everything comes from
+<details>
+<summary><b>Where every file in the download comes from</b></summary>
 
 Nothing in the download is hidden or comes from an unofficial site. You can
 check each part:
@@ -228,7 +246,26 @@ built by GitHub Actions from this public source ([build logs](https://github.com
 and each zip comes with a `.sha256` checksum. The licenses and the exact sources
 are in the zip's `kinect\licenses` folder ([SOURCES.txt](tools/kinect_release/SOURCES.txt)).
 
-## Build it yourself
+</details>
+
+<details>
+<summary><b>Log files and settings</b></summary>
+
+Xenia writes `xenia.log` next to `xenia_canary.exe` (the run before is kept as
+`xenia.previous.log`). At every start it records the Windows version, the files in
+the `kinect` folder, every Kinect USB device with its driver, Device Manager
+problem code and the USB hub and controller it is plugged into, the microphones
+and the Kinect settings; then how each sensor opened (in detail), the frame rate
+every minute, and any drop-out. `kinect\Setup-Kinect.log` records each driver
+setup. `xenia-skeleton.csv` records the body the game tracks, for problems with
+poses and gestures. Settings are explained in
+[README.txt](tools/kinect_release/README.txt) (Advanced settings) and
+[docs/kinect.md](docs/kinect.md).
+
+</details>
+
+<details>
+<summary><b>Build it yourself</b></summary>
 
 You do not need to build anything to play: the download above is ready to use.
 To make your own build anyway, pick one:
@@ -249,6 +286,7 @@ To make your own build anyway, pick one:
 
 Developers: how it works and the build steps are in [docs/kinect.md](docs/kinect.md).
 
+</details>
 
 ## About Xenia Canary
 

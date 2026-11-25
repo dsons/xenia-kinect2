@@ -39,7 +39,7 @@ class KinectDialog final : public ui::ImGuiDialog {
   void UpdatePreview();
   void DrawSensor();
   void DrawPreview();
-  void DrawCalibration();
+  void DrawPosition();
   void DrawView();
   void DrawMicrophone();
   void DrawSetup(bool starting, bool streaming);
@@ -70,11 +70,8 @@ class KinectDialog final : public ui::ImGuiDialog {
   Framing framing_seen_ = Framing::kUnknown;
   double framing_seen_since_ = 0.0;
 
-  // Calibrate: guide the player into a position where the Kinect sees their
-  // whole body, then say so and close.
-  bool calibrating_ = false;
+  // Since when the player has stood in a good position.
   double good_since_ = -1.0;
-  bool close_requested_ = false;
 
   int pan_ = 0;
   float zoom_ = 1.3f;
