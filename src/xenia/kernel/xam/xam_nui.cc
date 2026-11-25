@@ -9,11 +9,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
 
 #include "xenia/base/clock.h"
+#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/emulator.h"
 #include "xenia/kernel/kernel_flags.h"
@@ -29,6 +31,11 @@
 
 DECLARE_bool(nui_mic);
 
+DEFINE_bool(nui_skeleton_log, false,
+            "Write every skeleton the game tracks to xenia-skeleton.csv next "
+            "to xenia.log (joint positions in metres), to diagnose a pose or "
+            "gesture a game does not take.",
+            "NUI");
 DEFINE_bool(nui_kinect_id, true,
             "Kinect ID: enroll a newly tracked player as the first signed-in "
             "user without a Kinect slot, so titles find them signed in, as on "
@@ -162,6 +169,60 @@ void XamNuiIdentitySetCallback(uint32_t callback) {
 // version (5) and 0x511C, the floor plane and gravity normal at +0x10/+0x20,
 // then six NUI_SKELETON_DATA records 0x1C0 apart from +0x30: state (2 =
 // tracked), tracking id, enrollment index, user index, position, joints.
+// With nui_skeleton_log, every tracked skeleton the game computes goes to
+// xenia-skeleton.csv next to xenia.log, for diagnosing games that do not take
+// a pose or gesture.
+static void LogSkeletons(const uint8_t* b) {
+  static std::FILE* file = nullptr;
+  static bool opened = false;
+  if (!opened) {
+    opened = true;
+    const auto path =
+        xe::filesystem::GetExecutableFolder() / "xenia-skeleton.csv";
+    file = xe::filesystem::OpenFile(path, "w");
+    if (!file) {
+      XELOGW("NuiSkeleton: cannot write {}", xe::path_to_utf8(path));
+      return;
+    }
+    static const char* const kJoints[20] = {
+        "hip_center", "spine",   "shoulder_center", "head",       "shoulder_l",
+        "elbow_l",    "wrist_l", "hand_l",          "shoulder_r", "elbow_r",
+        "wrist_r",    "hand_r",  "hip_l",           "knee_l",     "ankle_l",
+        "foot_l",     "hip_r",   "knee_r",          "ankle_r",    "foot_r"};
+    std::fputs("ms,slot,tracking_id,floor_a,floor_b,floor_c,floor_d", file);
+    for (const char* joint : kJoints) {
+      std::fprintf(file, ",%s_x,%s_y,%s_z,%s_state", joint, joint, joint,
+                   joint);
+    }
+    std::fputc('\n', file);
+    XELOGI("NuiSkeleton: writing {}", xe::path_to_utf8(path));
+  }
+  if (!file) {
+    return;
+  }
+  auto u32 = [&](uint32_t o) { return xe::load_and_swap<uint32_t>(b + o); };
+  auto f32 = [&](uint32_t o) { return xe::load_and_swap<float>(b + o); };
+  const uint64_t ms = Clock::QueryHostUptimeMillis();
+  for (uint32_t s = 0; s < 6; s++) {
+    const uint32_t r = 0x30 + s * 0x1C0;
+    if (u32(r) != 2) {
+      continue;
+    }
+    // Joints (x, y, z in metres, camera space) at +0x20, their states
+    // (0 not tracked, 1 inferred, 2 tracked) at +0x160.
+    std::fprintf(file, "%llu,%u,%u,%.4f,%.4f,%.4f,%.4f",
+                 static_cast<unsigned long long>(ms), s, u32(r + 4), f32(0x10),
+                 f32(0x14), f32(0x18), f32(0x1C));
+    for (uint32_t j = 0; j < 20; j++) {
+      std::fprintf(file, ",%.4f,%.4f,%.4f,%u", f32(r + 0x20 + j * 16),
+                   f32(r + 0x24 + j * 16), f32(r + 0x28 + j * 16),
+                   u32(r + 0x160 + j * 4));
+    }
+    std::fputc('\n', file);
+  }
+  std::fflush(file);
+}
+
 void XamNuiIdentityOnFrame(uint32_t buffer_ptr) {
   if (!buffer_ptr) {
     return;
@@ -171,6 +232,9 @@ void XamNuiIdentityOnFrame(uint32_t buffer_ptr) {
   auto u32 = [&](uint32_t o) { return xe::load_and_swap<uint32_t>(b + o); };
   if (u32(4) != 5) {  // frame version
     return;
+  }
+  if (cvars::nui_skeleton_log) {
+    LogSkeletons(b);
   }
   const uint32_t base = 0x30;
   uint32_t id = 0, enrollment = ~0u, user = ~0u;
