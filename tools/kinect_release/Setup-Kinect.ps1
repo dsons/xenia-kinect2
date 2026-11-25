@@ -12,6 +12,7 @@
 #   -NoPause                   close without waiting for Enter when it worked
 #
 # Exit codes: 0 done, 1 failed, 2 no Kinect found, 3 no administrator rights.
+# Everything it does is also written to Setup-Kinect.log next to it.
 #
 # Plug the sensor in and power it before running this.
 
@@ -19,14 +20,46 @@ param([switch]$Restore, [switch]$NoPause)
 
 $ErrorActionPreference = 'Stop'
 
+$logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'Setup-Kinect.log'
+function Log([string]$message) {
+  Write-Host $message
+  try {
+    Add-Content -Path $logPath -Encoding UTF8 -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $message"
+  } catch {}
+}
+
+# Every Microsoft Kinect USB device Windows knows, plugged in or not, with its
+# driver and Windows' problem code (0 = none).
+function Log-Devices([string]$when) {
+  Log "Kinect devices ($when):"
+  $devices = @(Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB\\VID_045E&PID_02' })
+  if ($devices.Count -eq 0) { Log '  none' }
+  foreach ($d in $devices) {
+    $props = @{}
+    foreach ($key in 'DEVPKEY_Device_Service', 'DEVPKEY_Device_ProblemCode', 'DEVPKEY_Device_DriverInfPath', 'DEVPKEY_Device_DriverVersion') {
+      try { $props[$key] = (Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName $key -ErrorAction Stop).Data } catch { $props[$key] = '' }
+    }
+    Log ('  {0} | {1} | status {2} | problem {3} | driver {4} {5} {6}' -f $d.InstanceId, $d.FriendlyName, $d.Status,
+      $props['DEVPKEY_Device_ProblemCode'], $props['DEVPKEY_Device_Service'], $props['DEVPKEY_Device_DriverInfPath'],
+      $props['DEVPKEY_Device_DriverVersion'])
+  }
+}
+
 function Finish([int]$code) {
+  Log "Finished with exit code $code"
   # A failure always waits, so the message above can be read.
   if (-not $NoPause -or $code -ne 0) { Read-Host 'Press Enter to close' | Out-Null }
   exit $code
 }
 
+$os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
 $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$mode = if ($Restore) { ' -Restore' } else { '' }
+Log ('=== Setup-Kinect{0} | {1} {2} | administrator: {3}' -f $mode, $os.Caption, $os.Version, $isAdmin)
+
+if (-not $isAdmin) {
+  Log 'Asking Windows for administrator rights.'
   # Changing a device driver needs administrator rights: run again elevated.
   $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
   if ($Restore) { $arguments += '-Restore' }
@@ -34,8 +67,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
   try {
     $process = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList $arguments
   } catch {
-    Write-Host 'Windows did not give permission to set up the driver.'
-    Write-Host 'Run this again and click Yes when Windows asks.'
+    Log 'Windows did not give permission to set up the driver.'
+    Log 'Run this again and click Yes when Windows asks.'
     Finish 3
   }
   exit $process.ExitCode
@@ -44,20 +77,23 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 # Kinect 1: camera 02AE (Xbox 360) or 02BF (Kinect for Windows), motor 02B0.
 # Kinect 2: the sensor function of 02C4.
 $sensorPattern = '^USB\\VID_045E&PID_(02AE|02B0|02BF|02C4&MI_00)\\'
+Log-Devices 'before'
 $sensors = @(Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match $sensorPattern })
 if ($sensors.Count -eq 0) {
-  Write-Host 'No Kinect was found.'
-  Write-Host 'Check that it is plugged in to a USB port of this PC and that its power supply is plugged in, then try again.'
+  Log 'No Kinect was found.'
+  Log 'Check that it is plugged in to a USB port of this PC and that its power supply is plugged in, then try again.'
   Finish 2
 }
 
 if ($Restore) {
   foreach ($sensor in $sensors) {
-    Write-Host "Removing the WinUSB binding from $($sensor.InstanceId)"
-    & pnputil.exe /remove-device $sensor.InstanceId | Out-Host
+    Log "Removing the WinUSB binding from $($sensor.InstanceId)"
+    & pnputil.exe /remove-device $sensor.InstanceId | ForEach-Object { Log "  $_" }
   }
-  & pnputil.exe /scan-devices | Out-Host
-  Write-Host 'Done. Windows has re-detected the sensor with its default driver.'
+  & pnputil.exe /scan-devices | ForEach-Object { Log "  $_" }
+  Start-Sleep -Seconds 2
+  Log-Devices 'after'
+  Log 'Done. Windows has re-detected the sensor with its default driver.'
   Finish 0
 }
 
@@ -194,25 +230,27 @@ foreach ($sensor in $sensors) {
   $interfaceGuid = "{4B696E65-6374-4E55-4900-00000000$productId}"
   $service = (Get-PnpDeviceProperty -InstanceId $sensor.InstanceId -KeyName DEVPKEY_Device_Service).Data
   if ($service -eq 'WINUSB' -and $sensor.Status -eq 'OK') {
-    Write-Host "$($sensor.InstanceId) already uses WinUSB."
+    Log "$($sensor.InstanceId) already uses WinUSB."
     continue
   }
-  Write-Host "Binding WinUSB to $($sensor.InstanceId) (was: $service)"
+  Log "Binding WinUSB to $($sensor.InstanceId) (was: $service)"
   $result = [KinectDriver]::Bind($sensor.InstanceId, $inf, $interfaceGuid, $null)
   if ($result -eq 'NO_WINUSB_DRIVER') {
     $result = [KinectDriver]::Bind($sensor.InstanceId, $inf, $interfaceGuid, $usbDeviceClass)
   }
   if ($result) {
-    Write-Host "  Failed: $result"
+    Log "  Failed: $result"
     $failed = $true
   } else {
-    Write-Host '  Done.'
+    Log '  Done.'
   }
 }
+Start-Sleep -Seconds 2
+Log-Devices 'after'
 if ($failed) {
-  Write-Host 'Setup did not finish. Unplug the Kinect, plug it in again and run this again.'
+  Log 'Setup did not finish. Unplug the Kinect, plug it in again and run this again.'
   Finish 1
 }
-Write-Host ''
-Write-Host 'Done. The Kinect is ready for Xenia.'
+Log ''
+Log 'Done. The Kinect is ready for Xenia.'
 Finish 0

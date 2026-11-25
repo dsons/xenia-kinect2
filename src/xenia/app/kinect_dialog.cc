@@ -12,11 +12,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <cwctype>
 
 #include "xenia/app/emulator_window.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/filesystem.h"
+#include "xenia/base/logging.h"
 #include "xenia/base/platform.h"
 #include "xenia/config.h"
 #include "xenia/emulator.h"
@@ -24,9 +24,6 @@
 
 #if XE_PLATFORM_WIN32
 #include "xenia/base/platform_win.h"
-// After windows.h.
-#include <setupapi.h>
-#pragma comment(lib, "setupapi.lib")
 #endif
 
 DEFINE_bool(nui_kinect_seen, false,
@@ -87,12 +84,6 @@ void SetSetting(const char* name, T value) {
     var->OverrideConfigValue(value);
   }
 }
-
-#if XE_PLATFORM_WIN32
-bool StartsWith(const std::wstring& text, const wchar_t* prefix) {
-  return text.compare(0, wcslen(prefix), prefix) == 0;
-}
-#endif
 
 }  // namespace
 
@@ -232,6 +223,7 @@ void KinectDialog::DrawSensor() {
     for (const auto& m : kModes) {
       const bool selected = mode == m.cvar;
       if (ImGui::Selectable(m.label, selected) && !selected) {
+        XELOGI("Kinect window: sensor set to {}", m.cvar);
         SetSetting("nui_camera", std::string(m.cvar));
         Save();
         StartSensor(true);
@@ -331,6 +323,7 @@ void KinectDialog::DrawSetup(bool starting, bool streaming) {
 #endif
   ImGui::BeginDisabled(starting || installing);
   if (ImGui::Button("Retry")) {
+    XELOGI("Kinect window: Retry");
     next_detect_time_ = 0.0;
     StartSensor(true);
   }
@@ -351,11 +344,11 @@ void KinectDialog::DrawSetup(bool starting, bool streaming) {
 }
 
 void KinectDialog::DetectHardware(bool starting, bool streaming) {
-#if XE_PLATFORM_WIN32
   if (auto_start_time_ > 0.0 && ImGui::GetTime() >= auto_start_time_ &&
       !starting) {
     auto_start_time_ = 0.0;
     if (!streaming) {
+      XELOGI("Kinect window: opening the sensor");
       StartSensor(true);
     }
   }
@@ -363,57 +356,28 @@ void KinectDialog::DetectHardware(bool starting, bool streaming) {
     return;
   }
   next_detect_time_ = ImGui::GetTime() + 2.0;
-  Hardware found;
-  HDEVINFO devices = SetupDiGetClassDevsW(nullptr, L"USB", nullptr,
-                                          DIGCF_PRESENT | DIGCF_ALLCLASSES);
-  if (devices != INVALID_HANDLE_VALUE) {
-    SP_DEVINFO_DATA info = {};
-    info.cbSize = sizeof(info);
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(devices, i, &info); ++i) {
-      wchar_t id[512];
-      if (!SetupDiGetDeviceInstanceIdW(devices, &info, id, DWORD(std::size(id)),
-                                       nullptr)) {
-        continue;
-      }
-      std::wstring instance(id);
-      for (auto& c : instance) {
-        c = wchar_t(std::towupper(c));
-      }
-      // The same devices Setup-Kinect.ps1 binds.
-      const bool camera =
-          StartsWith(instance, L"USB\\VID_045E&PID_02AE\\") ||
-          StartsWith(instance, L"USB\\VID_045E&PID_02BF\\") ||
-          StartsWith(instance, L"USB\\VID_045E&PID_02C4&MI_00\\");
-      const bool motor = StartsWith(instance, L"USB\\VID_045E&PID_02B0\\");
-      if (!camera && !motor) {
-        continue;
-      }
-      found.camera |= camera;
-      found.motor |= motor;
-      wchar_t service[64] = {};
-      if (!SetupDiGetDeviceRegistryPropertyW(
-              devices, &info, SPDRP_SERVICE, nullptr,
-              reinterpret_cast<BYTE*>(service),
-              sizeof(service) - sizeof(wchar_t), nullptr) ||
-          _wcsicmp(service, L"WinUSB") != 0) {
-        found.needs_driver = true;
-      }
+  const auto found = kernel::xboxkrnl::DetectKinectHardware();
+  if (!hardware_checked_ || found.camera != hardware_.camera ||
+      found.motor != hardware_.motor ||
+      found.needs_driver != hardware_.needs_driver) {
+    XELOGI("Kinect window: camera {}, motor {}, driver {}",
+           found.camera ? "found" : "not found",
+           found.motor ? "found" : "not found",
+           found.needs_driver ? "needs setting up" : "ready");
+    if (hardware_checked_) {
+      kernel::xboxkrnl::LogKinectDevices();
     }
-    SetupDiDestroyDeviceInfoList(devices);
   }
   // Try the sensor again when it becomes usable (plugged in, or its driver
   // set up), not on every check.
   const bool was_ready = hardware_.camera && !hardware_.needs_driver;
   const bool ready = found.camera && !found.needs_driver;
-  hardware_ = found;
-  if (ready && !was_ready) {
+  if (hardware_checked_ && ready && !was_ready) {
     // Windows restarts a device whose driver changed: give it a moment.
     auto_start_time_ = ImGui::GetTime() + 3.0;
   }
-#else
-  (void)starting;
-  (void)streaming;
-#endif
+  hardware_ = found;
+  hardware_checked_ = true;
 }
 
 void KinectDialog::DrawPreview() {
@@ -542,7 +506,11 @@ void KinectDialog::InstallDriver() {
   setup_result_.clear();
   if (ShellExecuteExW(&info) && info.hProcess) {
     setup_process_ = info.hProcess;
+    XELOGI(
+        "Kinect window: driver setup started (log: kinect\\Setup-Kinect.log)");
   } else {
+    XELOGW("Kinect window: driver setup could not be started (error {})",
+           GetLastError());
     setup_failed_ = true;
     setup_result_ =
         "The driver setup could not be started. Run Setup-Kinect.cmd in "
@@ -561,6 +529,7 @@ void KinectDialog::PollDriverSetup() {
   GetExitCodeProcess(setup_process_, &code);
   CloseHandle(setup_process_);
   setup_process_ = nullptr;
+  XELOGI("Kinect window: driver setup finished with exit code {}", code);
   // Exit codes of Setup-Kinect.ps1.
   setup_failed_ = code != 0;
   switch (code) {

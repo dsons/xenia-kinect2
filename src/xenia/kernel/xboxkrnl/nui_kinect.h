@@ -33,6 +33,21 @@ inline const char* KinectSensorName(KinectSensorKind kind) {
   }
 }
 
+// Kinect devices Windows sees, whether or not they can be opened.
+struct KinectHardware {
+  bool camera = false;        // a Kinect camera of either kind
+  bool motor = false;         // a Kinect for Xbox 360's motor
+  bool needs_driver = false;  // one of them is not on WinUSB yet
+};
+KinectHardware DetectKinectHardware();
+
+// Writes what is needed to diagnose a Kinect problem to the log: Windows, the
+// kinect folder, every Kinect USB device with its driver, problem code and USB
+// path, the microphones and the Kinect settings.
+void LogKinectReport();
+// Only the Kinect USB devices.
+void LogKinectDevices();
+
 // A Kinect sensor on the host standing in for the Xbox 360 Kinect: a Kinect
 // for Xbox 360 / Kinect for Windows v1 (frames used as they are), or a Kinect
 // for Xbox One / Kinect for Windows v2 (frames converted to Kinect 1 frames).
@@ -118,6 +133,9 @@ class KinectMicrophones {
 };
 
 #if !XE_PLATFORM_WIN32
+inline KinectHardware DetectKinectHardware() { return {}; }
+inline void LogKinectReport() {}
+inline void LogKinectDevices() {}
 inline KinectCamera* KinectCamera::Get() {
   static KinectCamera camera;
   return &camera;

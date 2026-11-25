@@ -40,6 +40,7 @@
 #include "xenia/kernel/xam/profile_manager.h"
 #include "xenia/kernel/xam/xam_module.h"
 #include "xenia/kernel/xam/xam_state.h"
+#include "xenia/kernel/xboxkrnl/nui_kinect.h"
 #include "xenia/kernel/xconfig.h"
 #include "xenia/ui/file_picker.h"
 #include "xenia/ui/graphics_provider.h"
@@ -277,6 +278,8 @@ void EmulatorWindow::OnEmulatorInitialized() {
   if (cvars::fullscreen) {
     SetFullscreen(true);
   }
+  // Kinect devices, drivers and settings, for problem reports.
+  kernel::xboxkrnl::LogKinectReport();
   if (cvars::nui_window_on_start && !kinect_dialog_) {
     ToggleKinectDialog();
   }

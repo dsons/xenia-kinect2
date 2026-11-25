@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -34,10 +35,19 @@
 // ksmedia.h needs mmreg.h first.
 #include <ksmedia.h>
 
-#pragma comment(lib, "ole32.lib")
+// After windows.h.
+#include <cfgmgr32.h>
+#include <setupapi.h>
 
+#pragma comment(lib, "cfgmgr32.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "setupapi.lib")
+
+DECLARE_string(nui_camera);
+DECLARE_bool(nui_camera_mirror);
 DECLARE_int32(nui_kinect2_pan);
 DECLARE_double(nui_kinect2_zoom);
+DECLARE_bool(nui_mic);
 DECLARE_string(nui_mic_device);
 
 namespace xe {
@@ -69,8 +79,10 @@ void RuntimeLog(int level, const char* message) {
   }
   if (level <= 1) {
     XELOGE("Kinect: {}", text);
-  } else {
+  } else if (level == 2) {
     XELOGW("Kinect: {}", text);
+  } else {
+    XELOGI("Kinect: {}", text);
   }
 }
 
@@ -176,6 +188,7 @@ struct KinectCamera::Impl {
                                             : "did not start");
       in_use |= result == kRuntimeOpenFailed;
     }
+    LogKinectDevices();
     SetMessage(in_use ? "The Kinect is in use by another program. Close it and "
                         "press Retry."
                       : "No Kinect found. Check that it is plugged in and its "
@@ -202,6 +215,11 @@ struct KinectCamera::Impl {
     // after its driver changed) can stay silent; open it again.
     constexpr auto kStallTimeout = std::chrono::seconds(6);
     auto last_frame = count_start;
+    // For the log: time to the first frame, then frames per minute.
+    auto opened = count_start;
+    bool first_frame = true;
+    uint32_t minute_frames = 0;
+    auto minute_start = count_start;
     while (!stop) {
       int result = read(rgb_in.data(), depth_in.data(), 250);
       auto now = std::chrono::steady_clock::now();
@@ -242,10 +260,30 @@ struct KinectCamera::Impl {
           reported_loss = false;
         }
         last_frame = std::chrono::steady_clock::now();
+        opened = last_frame;
+        first_frame = true;
         continue;
       }
       ++counted;
       last_frame = now;
+      if (first_frame) {
+        first_frame = false;
+        minute_frames = 0;
+        minute_start = now;
+        XELOGI(
+            "Kinect: first frame {} ms after opening",
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - opened)
+                .count());
+      }
+      ++minute_frames;
+      if (now - minute_start >= std::chrono::minutes(1)) {
+        XELOGI("Kinect: {} frames in the last minute ({:.1f} a second)",
+               minute_frames,
+               minute_frames /
+                   std::chrono::duration<double>(now - minute_start).count());
+        minute_frames = 0;
+        minute_start = now;
+      }
       if (convert) {
         if (pan != configured_pan || zoom != configured_zoom) {
           configured_pan = pan;
@@ -722,6 +760,279 @@ std::string KinectMicrophones::device_name() {
 }
 
 float KinectMicrophones::level() { return impl_ ? impl_->peak.load() : 0.0f; }
+
+namespace {
+
+std::wstring Upper(std::wstring text) {
+  for (auto& c : text) {
+    c = wchar_t(std::towupper(c));
+  }
+  return text;
+}
+
+bool StartsWith(const std::wstring& text, const wchar_t* prefix) {
+  return text.compare(0, wcslen(prefix), prefix) == 0;
+}
+
+// USB devices of the Kinect for Xbox 360, Kinect for Windows v1 and Kinect
+// for Xbox One / v2.
+bool IsKinectDevice(const std::wstring& id) {
+  static const wchar_t* const kPrefixes[] = {
+      L"USB\\VID_045E&PID_02AD", L"USB\\VID_045E&PID_02AE",
+      L"USB\\VID_045E&PID_02B0", L"USB\\VID_045E&PID_02BB",
+      L"USB\\VID_045E&PID_02BE", L"USB\\VID_045E&PID_02BF",
+      L"USB\\VID_045E&PID_02C2", L"USB\\VID_045E&PID_02C3",
+      L"USB\\VID_045E&PID_02C4", L"USB\\VID_045E&PID_02D8",
+      L"USB\\VID_045E&PID_02D9",
+  };
+  for (const wchar_t* prefix : kPrefixes) {
+    if (StartsWith(id, prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The devices Setup-Kinect.ps1 binds to WinUSB.
+bool IsKinectCamera(const std::wstring& id) {
+  return StartsWith(id, L"USB\\VID_045E&PID_02AE\\") ||
+         StartsWith(id, L"USB\\VID_045E&PID_02BF\\") ||
+         StartsWith(id, L"USB\\VID_045E&PID_02C4&MI_00\\");
+}
+bool IsKinectMotor(const std::wstring& id) {
+  return StartsWith(id, L"USB\\VID_045E&PID_02B0\\");
+}
+
+std::wstring InstanceId(HDEVINFO devices, SP_DEVINFO_DATA& info) {
+  wchar_t id[512];
+  if (!SetupDiGetDeviceInstanceIdW(devices, &info, id, DWORD(std::size(id)),
+                                   nullptr)) {
+    return {};
+  }
+  return Upper(id);
+}
+
+std::string DeviceProperty(HDEVINFO devices, SP_DEVINFO_DATA& info,
+                           DWORD property) {
+  wchar_t value[512] = {};
+  if (!SetupDiGetDeviceRegistryPropertyW(
+          devices, &info, property, nullptr, reinterpret_cast<BYTE*>(value),
+          sizeof(value) - sizeof(wchar_t), nullptr)) {
+    return {};
+  }
+  return ToUtf8(value);
+}
+
+std::string NodeProperty(DEVINST node, ULONG property) {
+  wchar_t value[512] = {};
+  ULONG size = sizeof(value) - sizeof(wchar_t);
+  if (CM_Get_DevNode_Registry_PropertyW(node, property, nullptr, value, &size,
+                                        0) != CR_SUCCESS) {
+    return {};
+  }
+  return ToUtf8(value);
+}
+
+// "winusb.inf, version 10.0.26100.1, Microsoft" from the driver's registry key.
+std::string DriverDetails(HDEVINFO devices, SP_DEVINFO_DATA& info) {
+  HKEY key = SetupDiOpenDevRegKey(devices, &info, DICS_FLAG_GLOBAL, 0,
+                                  DIREG_DRV, KEY_READ);
+  if (key == INVALID_HANDLE_VALUE) {
+    return "no driver installed";
+  }
+  auto read = [key](const wchar_t* name) {
+    wchar_t value[256] = {};
+    DWORD size = sizeof(value) - sizeof(wchar_t);
+    if (RegQueryValueExW(key, name, nullptr, nullptr,
+                         reinterpret_cast<BYTE*>(value),
+                         &size) != ERROR_SUCCESS) {
+      return std::string();
+    }
+    return ToUtf8(value);
+  };
+  std::string details = read(L"InfPath") + ", version " +
+                        read(L"DriverVersion") + ", " + read(L"ProviderName");
+  RegCloseKey(key);
+  return details;
+}
+
+// Device Manager's problem codes seen with Kinects.
+const char* ProblemText(ULONG problem) {
+  switch (problem) {
+    case 0:
+      return "working";
+    case CM_PROB_FAILED_START:  // 10
+      return "code 10, the device cannot start";
+    case CM_PROB_DISABLED:  // 22
+      return "code 22, disabled in Device Manager";
+    case CM_PROB_FAILED_INSTALL:  // 28
+      return "code 28, no driver installed";
+    case CM_PROB_FAILED_ADD:  // 31
+      return "code 31, the driver did not load";
+    case CM_PROB_FAILED_POST_START:  // 43
+      return "code 43, Windows stopped it (often power or the USB port)";
+    default:
+      return "see Device Manager";
+  }
+}
+
+}  // namespace
+
+KinectHardware DetectKinectHardware() {
+  KinectHardware found;
+  HDEVINFO devices = SetupDiGetClassDevsW(nullptr, L"USB", nullptr,
+                                          DIGCF_PRESENT | DIGCF_ALLCLASSES);
+  if (devices == INVALID_HANDLE_VALUE) {
+    return found;
+  }
+  SP_DEVINFO_DATA info = {};
+  info.cbSize = sizeof(info);
+  for (DWORD i = 0; SetupDiEnumDeviceInfo(devices, i, &info); ++i) {
+    const std::wstring id = InstanceId(devices, info);
+    const bool camera = IsKinectCamera(id);
+    const bool motor = IsKinectMotor(id);
+    if (!camera && !motor) {
+      continue;
+    }
+    found.camera |= camera;
+    found.motor |= motor;
+    std::string service = DeviceProperty(devices, info, SPDRP_SERVICE);
+    std::transform(service.begin(), service.end(), service.begin(), [](char c) {
+      return char(std::toupper(static_cast<unsigned char>(c)));
+    });
+    if (service != "WINUSB") {
+      found.needs_driver = true;
+    }
+  }
+  SetupDiDestroyDeviceInfoList(devices);
+  return found;
+}
+
+void LogKinectDevices() {
+  HDEVINFO devices =
+      SetupDiGetClassDevsW(nullptr, L"USB", nullptr, DIGCF_ALLCLASSES);
+  if (devices == INVALID_HANDLE_VALUE) {
+    XELOGW("Kinect devices: USB devices cannot be listed (error {})",
+           GetLastError());
+    return;
+  }
+  int count = 0;
+  SP_DEVINFO_DATA info = {};
+  info.cbSize = sizeof(info);
+  for (DWORD i = 0; SetupDiEnumDeviceInfo(devices, i, &info); ++i) {
+    const std::wstring id = InstanceId(devices, info);
+    if (!IsKinectDevice(id)) {
+      continue;
+    }
+    ++count;
+    ULONG status = 0, problem = 0;
+    const bool present =
+        CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) == CR_SUCCESS;
+    std::string name = DeviceProperty(devices, info, SPDRP_FRIENDLYNAME);
+    if (name.empty()) {
+      name = DeviceProperty(devices, info, SPDRP_DEVICEDESC);
+    }
+    const std::string service = DeviceProperty(devices, info, SPDRP_SERVICE);
+    if (!present) {
+      XELOGI("Kinect device: {} | {} | not plugged in now | driver {}",
+             ToUtf8(id), name, service.empty() ? "none" : service);
+      continue;
+    }
+    XELOGI("Kinect device: {} | {} | {} | driver {} ({}) | {}", ToUtf8(id),
+           name,
+           (status & DN_HAS_PROBLEM) ? ProblemText(problem) : ProblemText(0),
+           service.empty() ? "none" : service, DriverDetails(devices, info),
+           DeviceProperty(devices, info, SPDRP_LOCATION_INFORMATION));
+    // The hubs and the USB controller it is plugged into.
+    DEVINST node = info.DevInst;
+    for (int depth = 0; depth < 8; ++depth) {
+      DEVINST parent = 0;
+      if (CM_Get_Parent(&parent, node, 0) != CR_SUCCESS) {
+        break;
+      }
+      wchar_t parent_id[512] = {};
+      if (CM_Get_Device_IDW(parent, parent_id, ULONG(std::size(parent_id)),
+                            0) != CR_SUCCESS ||
+          StartsWith(Upper(parent_id), L"HTREE\\") ||
+          StartsWith(Upper(parent_id), L"ACPI\\")) {
+        break;
+      }
+      std::string parent_name = NodeProperty(parent, CM_DRP_FRIENDLYNAME);
+      if (parent_name.empty()) {
+        parent_name = NodeProperty(parent, CM_DRP_DEVICEDESC);
+      }
+      XELOGI("Kinect device:   on {} | {}", parent_name, ToUtf8(parent_id));
+      node = parent;
+    }
+  }
+  SetupDiDestroyDeviceInfoList(devices);
+  if (!count) {
+    XELOGI(
+        "Kinect devices: none known to Windows (never plugged in to this PC, "
+        "or without power)");
+  }
+}
+
+void LogKinectReport() {
+  XELOGI("Kinect report: begin");
+  using RtlGetVersionFn = LONG(WINAPI*)(OSVERSIONINFOW*);
+  if (auto rtl_get_version = reinterpret_cast<RtlGetVersionFn>(
+          GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion"))) {
+    OSVERSIONINFOW version = {};
+    version.dwOSVersionInfoSize = sizeof(version);
+    if (rtl_get_version(&version) == 0) {
+      XELOGI("Kinect report: Windows {}.{} build {}", version.dwMajorVersion,
+             version.dwMinorVersion, version.dwBuildNumber);
+    }
+  }
+
+  const auto folder = xe::filesystem::GetExecutableFolder() / "kinect";
+  std::error_code error;
+  if (!std::filesystem::is_directory(folder, error)) {
+    XELOGW("Kinect report: the kinect folder is missing ({})",
+           xe::path_to_utf8(folder));
+  } else {
+    for (const auto& entry :
+         std::filesystem::directory_iterator(folder, error)) {
+      if (entry.is_regular_file(error)) {
+        XELOGI("Kinect report: kinect\\{} ({} bytes)",
+               xe::path_to_utf8(entry.path().filename()),
+               entry.file_size(error));
+      }
+    }
+    for (const char* name :
+         {"xenia_kinect.dll", "freenect.dll", "freenect2.dll", "libusb-1.0.dll",
+          "turbojpeg.dll", "vcomp140.dll", "msvcp140.dll", "vcruntime140.dll",
+          "vcruntime140_1.dll"}) {
+      if (!std::filesystem::exists(folder / name, error)) {
+        XELOGW("Kinect report: kinect\\{} is missing (deleted by antivirus?)",
+               name);
+      }
+    }
+  }
+
+  LogKinectDevices();
+
+  XELOGI(
+      "Kinect report: nui_camera = {}, nui_kinect2_zoom = {:.2f}, "
+      "nui_kinect2_pan = {}, nui_camera_mirror = {}, nui_mic = {}, "
+      "nui_mic_device = \"{}\"",
+      cvars::nui_camera, cvars::nui_kinect2_zoom, cvars::nui_kinect2_pan,
+      cvars::nui_camera_mirror, cvars::nui_mic, cvars::nui_mic_device);
+  // On its own thread: COM is set up there without disturbing the caller's.
+  std::vector<std::string> microphones;
+  std::thread([&microphones]() {
+    microphones = KinectMicrophones::ListDevices();
+  }).join();
+  if (microphones.empty()) {
+    XELOGI("Kinect report: no microphones found");
+  }
+  for (const auto& name : microphones) {
+    XELOGI("Kinect report: microphone \"{}\"", name);
+  }
+  XELOGI("Kinect report: end");
+  xe::FlushLog();
+}
 
 }  // namespace xboxkrnl
 }  // namespace kernel

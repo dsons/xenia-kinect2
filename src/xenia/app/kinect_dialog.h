@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "xenia/kernel/xboxkrnl/nui_kinect.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
 
@@ -47,13 +48,6 @@ class KinectDialog final : public ui::ImGuiDialog {
   void Save();
   bool TitleRunning() const;
 
-  // Kinect devices Windows sees, whether or not they can be opened.
-  struct Hardware {
-    bool camera = false;  // a Kinect camera (either kind)
-    bool motor = false;   // a Kinect for Xbox 360's motor
-    bool needs_driver = false;
-  };
-
   EmulatorWindow& emulator_window_;
 
   std::future<bool> pending_start_;
@@ -73,7 +67,8 @@ class KinectDialog final : public ui::ImGuiDialog {
 
   std::vector<std::string> microphones_;
 
-  Hardware hardware_;
+  kernel::xboxkrnl::KinectHardware hardware_;
+  bool hardware_checked_ = false;
   double next_detect_time_ = 0.0;
   double auto_start_time_ = 0.0;
   void* setup_process_ = nullptr;

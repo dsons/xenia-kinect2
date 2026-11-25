@@ -48,8 +48,9 @@ typedef void (*xk_log_callback)(int level, const char* message);
 // XK_API_VERSION of the DLL.
 XK_API int xk_api_version(void);
 
-// Receives the libraries' warnings and errors (level 1 error, 2 warning).
-// May be called on the libraries' threads.
+// Receives the libraries' errors (level 1) and warnings (level 2), and while
+// xk_open runs also their information (level 3: devices found, firmware). May
+// be called on the libraries' threads.
 XK_API void xk_set_log_callback(xk_log_callback callback);
 
 // Opens the first sensor of the given kind (XK_SENSOR_*) and starts depth and

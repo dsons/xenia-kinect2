@@ -21,6 +21,7 @@
 #include <libfreenect2/logger.h>
 #include <libfreenect2/packet_pipeline.h>
 #include <libfreenect2/registration.h>
+#include <libusb.h>
 #include <libfreenect2/libfreenect2.hpp>
 
 #include <algorithm>
@@ -44,12 +45,15 @@ std::atomic<bool> g_access_denied{false};
 // Set while a sensor is being closed: stopping the streams cancels transfers
 // in flight, which the libraries report as failures.
 std::atomic<bool> g_closing{false};
+// Set while a sensor is being opened: the libraries' informational messages
+// (devices found, firmware, interfaces) are passed on then, for diagnosis.
+std::atomic<bool> g_opening{false};
 
 void Log(int level, const std::string& message) {
   if (message.find("LIBUSB_ERROR_ACCESS") != std::string::npos) {
     g_access_denied = true;
   }
-  if (level > 2 || g_closing) {
+  if (g_closing || level > 3 || (level == 3 && !g_opening)) {
     return;
   }
   if (auto callback = g_log_callback.load()) {
@@ -77,9 +81,12 @@ class Kinect1Sensor final : public Sensor {
     if (freenect_init(&context_, nullptr) < 0) {
       return XK_ERROR_START_FAILED;
     }
-    freenect_set_log_level(context_, FREENECT_LOG_WARNING);
+    freenect_set_log_level(context_, FREENECT_LOG_INFO);
     freenect_set_log_callback(context_, &Kinect1Sensor::OnLog);
-    if (freenect_num_devices(context_) <= 0) {
+    const int count = freenect_num_devices(context_);
+    Log(3, "libfreenect: " + std::to_string(count) +
+               " Kinect for Xbox 360 camera(s) found");
+    if (count <= 0) {
       return XK_ERROR_NO_DEVICE;
     }
     // The motor (also the light) is a separate USB device; a Kinect for
@@ -93,6 +100,11 @@ class Kinect1Sensor final : public Sensor {
         device_ = nullptr;
         return XK_ERROR_OPEN_FAILED;
       }
+      Log(3,
+          "libfreenect: opened the camera without the motor (motor "
+          "missing or not on WinUSB; the light will not change)");
+    } else {
+      Log(3, "libfreenect: opened the camera and the motor");
     }
     freenect_set_user(device_, this);
     const size_t pixels = size_t(width) * height;
@@ -147,7 +159,11 @@ class Kinect1Sensor final : public Sensor {
     while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
       text.pop_back();
     }
-    Log(level <= FREENECT_LOG_ERROR ? 1 : 2, text);
+    Log(level <= FREENECT_LOG_ERROR     ? 1
+        : level == FREENECT_LOG_WARNING ? 2
+        : level <= FREENECT_LOG_INFO    ? 3
+                                        : 4,
+        text);
   }
 
   static void OnVideo(freenect_device* device, void* data, uint32_t) {
@@ -217,7 +233,7 @@ constexpr int kExposureInterval = 15;
 
 class Freenect2Logger : public libfreenect2::Logger {
  public:
-  Freenect2Logger() { level_ = Warning; }
+  Freenect2Logger() { level_ = Info; }
   void log(Level level, const std::string& message) override {
     // With Microsoft's WinUSB driver the IR interface cannot be switched off;
     // the patched libfreenect2 stops the sensor anyway. Not worth an error.
@@ -258,7 +274,10 @@ class Kinect2Sensor final : public Sensor {
   int Open() {
     width = 960;
     height = 540;
-    if (context_.enumerateDevices() == 0) {
+    const int count = context_.enumerateDevices();
+    Log(3, "libfreenect2: " + std::to_string(count) +
+               " Kinect for Xbox One sensor(s) found");
+    if (count == 0) {
       return g_access_denied ? XK_ERROR_OPEN_FAILED : XK_ERROR_NO_DEVICE;
     }
     device_ = context_.openDevice(context_.getDefaultDeviceSerialNumber(),
@@ -281,6 +300,7 @@ class Kinect2Sensor final : public Sensor {
       device_ = nullptr;
       return XK_ERROR_START_FAILED;
     }
+    Log(3, "libfreenect2: firmware " + device_->getFirmwareVersion());
     device_->setColorManualExposure(shutter_ms_, gain_);
     registration_ = std::make_unique<libfreenect2::Registration>(
         device_->getIrCameraParams(), device_->getColorCameraParams());
@@ -433,6 +453,15 @@ XK_API int xk_open(int sensor) {
   CloseSensor();
   InstallLogger();
   g_access_denied = false;
+  g_opening = true;
+  {
+    const libusb_version* usb = libusb_get_version();
+    Log(3, "runtime API " + std::to_string(XK_API_VERSION) + ", libusb " +
+               std::to_string(usb->major) + "." + std::to_string(usb->minor) +
+               "." + std::to_string(usb->micro) + ", opening " +
+               (sensor == XK_SENSOR_KINECT1 ? "Kinect for Xbox 360"
+                                            : "Kinect for Xbox One"));
+  }
   int result = XK_ERROR_INVALID;
   if (sensor == XK_SENSOR_KINECT1) {
     auto s = std::make_unique<Kinect1Sensor>();
@@ -450,6 +479,7 @@ XK_API int xk_open(int sensor) {
   if (result == XK_ERROR_NO_DEVICE && g_access_denied) {
     result = XK_ERROR_OPEN_FAILED;
   }
+  g_opening = false;
   return result;
 }
 

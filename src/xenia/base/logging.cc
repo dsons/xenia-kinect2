@@ -448,6 +448,13 @@ void InitializeLogging(const std::string_view app_name) {
     // Default to app name.
     auto file_name = fmt::format("{}.log", app_name);
     auto file_path = xe::filesystem::GetExecutableFolder() / file_name;
+    // Keep the previous run's log, which is often the one that matters.
+    std::error_code error;
+    if (std::filesystem::exists(file_path, error)) {
+      auto previous = file_path;
+      previous.replace_extension(".previous.log");
+      std::filesystem::rename(file_path, previous, error);
+    }
     log_file = xe::filesystem::OpenFile(file_path, "wt");
   } else {
     xe::filesystem::CreateParentFolder(cvars::log_file);
