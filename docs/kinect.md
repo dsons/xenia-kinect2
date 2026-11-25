@@ -63,9 +63,9 @@ sensor is not on WinUSB yet, in which case **Set up Kinect driver** runs
 `kinect\Setup-Kinect.cmd -NoPause` and opens the sensor a few seconds after it
 succeeds. A sensor that opens but sends no frames for 6 seconds is reopened.
 
-The release's configuration sets `nui_window_on_start`, so the window opens at
-start until a Kinect has delivered frames once (`nui_kinect_seen`); then it is
-turned off and the window says so.
+The release's configuration sets `nui_window_on_start`: the window opens at
+start when SetupAPI sees a Kinect, and never when Xenia is started with a game
+(`target`), so launchers and shortcuts go straight into the game.
 
 ## Diagnostics
 
@@ -129,7 +129,6 @@ pushed `v*` tag also publishes a release with the zip, its checksum,
 | `nui_mic_device` | `Xbox NUI Sensor` | Capture device name to match |
 | `nui_kinect_id` | `true` | Enroll a newly tracked player as the signed-in user |
 | `nui_window_on_start` | `false` (`true` in the release) | Open the Kinect window at start |
-| `nui_kinect_seen` | `false` | Set once a Kinect has worked; turns `nui_window_on_start` off |
 | `default_profile_gamertag` | empty | Create and sign in a profile on boot |
 | `texture_1d_wide_max_rows` | `32` | Kinect titles need 96 |
 | `resolve_constant_one_threshold` | `128` | Mask threshold for copy command 2 resolves |

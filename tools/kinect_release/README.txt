@@ -66,9 +66,14 @@ STEP 4. Start Xenia and set up the Kinect
   connects to the Kinect.
 
   When it works, you see yourself and a colourful depth picture. Stand
-  back until your whole body is in the picture and the text says "Good
-  distance". Then close the Kinect window. It will not open by itself
-  again; you can always find it in the "HID" menu under "Kinect...".
+  where you will play until it says "Good distance" and "Whole body in
+  view" (see SET UP WHERE YOU STAND below). Then close the Kinect window.
+
+  The Kinect window opens like this every time you start Xenia with a
+  Kinect plugged in, so you can check where you stand before choosing a
+  game. To stop that, untick "Open this window when Xenia starts". It does
+  not open when Xenia is started with a game (from a shortcut or a game
+  launcher), and it is always in the "HID" menu under "Kinect...".
 
   The driver is the WinUSB driver that is part of Windows, so nothing is
   downloaded. You do not need the Kinect for Windows SDK, the Kinect
@@ -87,6 +92,37 @@ PLAY
   signs it in for you.
 
 
+SET UP WHERE YOU STAND (CALIBRATION)
+------------------------------------
+
+Do this the first time, after moving furniture or the Kinect, and whenever a
+game does not see you or does not take your moves.
+
+  1. Start xenia_canary.exe. With a Kinect plugged in, the Kinect window
+     opens by itself (otherwise: "HID" menu > "Kinect..."; press Esc first
+     if a game is fullscreen).
+  2. Stand where you will play, facing the Kinect. In the right-hand
+     (depth) picture, green is a good distance, red too close, blue too far.
+  3. Read the line under the pictures and do what it says:
+
+     "Whole body in view."            You are set. Close it and play.
+     "Your feet are out of the        Tilt the Kinect down a little, or
+      picture."                       stand further back.
+     "Your head is out of the         Tilt the Kinect up a little, or stand
+      picture."                       further back.
+     "Something is in front of        Move the table or chair, or move the
+      your legs."                     Kinect so it sees your feet.
+     "Step back." / "Come closer."    Move until it says "Good distance".
+
+  4. Raise both hands above your head: they should stay in the picture.
+  5. Kinect for Xbox One only: in a small room raise "Step back"; if you
+     cannot stand in the middle, use "Shift sideways".
+
+  Games cannot tilt your Kinect for you, so aim it by hand. Dance games
+  compare your whole body to the dancer: if your feet are hidden, they see
+  you but do not take your poses.
+
+
 PLAYING TIPS
 ------------
 
@@ -103,7 +139,8 @@ PLAYING TIPS
   the middle of the room, use "Shift sideways".
 - Xbox Live Arcade games (for example Fruit Ninja Kinect and Kinect Party) run
   as their trial version unless you set license_mask = 1 in the file
-  xenia-canary.config.toml, as in any Xenia.
+  xenia-canary.config.toml, as in any Xenia. Only do that for games you
+  bought in full.
 
 
 IF SOMETHING DOES NOT WORK
@@ -215,13 +252,23 @@ of xenia-canary.config.toml:
   nui_camera_mirror  false (default). Mirror the picture games see.
   nui_mic            true (default): emulate the Kinect microphones.
   nui_mic_device     Part of the name of the microphone to use.
-  nui_window_on_start  true: open the Kinect window when Xenia starts.
-                     Turned off by itself the first time a Kinect works.
+  nui_window_on_start  true: open the Kinect window when Xenia starts with
+                     a Kinect plugged in (not when started with a game).
 
 In the [Network] section:
 
   network_local_only true (default): games stay offline, on this PC only.
                      Set to false for system link or online play.
+
+
+LEGAL: YOUR OWN GAMES ONLY
+--------------------------
+
+This is for preserving and playing Xbox 360 Kinect games you own, from
+copies you made yourself of your own discs or downloads. No games are
+included, and no game files, keys or download links may be shared in this
+project's issues. Only set license_mask = 1 for Xbox Live Arcade games you
+bought in full.
 
 
 ABOUT

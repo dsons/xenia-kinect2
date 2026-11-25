@@ -62,6 +62,11 @@ class KinectDialog final : public ui::ImGuiDialog {
   std::unique_ptr<ui::ImmediateTexture> depth_texture_;
   float center_distance_m_ = 0.0f;
 
+  // Whether the player's whole body is in the depth picture.
+  enum class Framing { kUnknown, kGood, kFeetCut, kHeadCut, kLegsBlocked };
+  Framing CheckFraming(float distance_m) const;
+  Framing framing_ = Framing::kUnknown;
+
   int pan_ = 0;
   float zoom_ = 1.3f;
 
@@ -74,7 +79,6 @@ class KinectDialog final : public ui::ImGuiDialog {
   void* setup_process_ = nullptr;
   std::string setup_result_;
   bool setup_failed_ = false;
-  bool start_note_ = false;
 };
 
 }  // namespace app

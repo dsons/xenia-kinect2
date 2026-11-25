@@ -160,9 +160,11 @@ DEFINE_bool(disable_doubleclick_fullscreen, false,
             "causes Xenia to enter fullscreen mode.",
             "General");
 DEFINE_bool(nui_window_on_start, false,
-            "Open the Kinect window (HID > Kinect...) when Xenia starts. "
-            "Turned off by itself the first time a Kinect works.",
+            "Open the Kinect window (HID > Kinect...) when Xenia starts with a "
+            "Kinect plugged in, to check it before choosing a game. Not when "
+            "Xenia is started with a game.",
             "NUI");
+DECLARE_path(target);
 
 namespace xe {
 namespace app {
@@ -291,8 +293,14 @@ void EmulatorWindow::OnEmulatorInitialized() {
       }
     });
   });
-  if (cvars::nui_window_on_start && !kinect_dialog_) {
-    ToggleKinectDialog();
+  // Started with a game (a shortcut or a game launcher): straight into it.
+  if (cvars::nui_window_on_start && cvars::target.empty() && !kinect_dialog_) {
+    const auto hardware = kernel::xboxkrnl::DetectKinectHardware();
+    if (hardware.camera || hardware.motor) {
+      ToggleKinectDialog();
+    } else {
+      XELOGI("Kinect window: no Kinect plugged in, not opened at start");
+    }
   }
 
   if (IsUseNexusForGameBarEnabled()) {
@@ -525,7 +533,7 @@ void EmulatorWindow::DisplayConfigDialog::OnDraw(ImGuiIO& io) {
               .5f * fsr_sharpness_reduction * fsr_sharpness_reduction;
           ImGui::SameLine();
           if (ImGui::Button("Reset##ResetFSRSharpnessReduction")) {
-            fsr_sharpness_reduction = ui::Presenter::GuestOutputPaintConfig ::
+            fsr_sharpness_reduction = ui::Presenter::GuestOutputPaintConfig::
                 kFsrSharpnessReductionDefault;
           }
           new_presenter_config.SetFsrSharpnessReduction(
@@ -549,7 +557,7 @@ void EmulatorWindow::DisplayConfigDialog::OnDraw(ImGuiIO& io) {
             label.c_str(), ImGuiSliderFlags_NoInput);
         ImGui::SameLine();
         if (ImGui::Button("Reset##ResetCASAdditionalSharpness")) {
-          cas_additional_sharpness = ui::Presenter::GuestOutputPaintConfig ::
+          cas_additional_sharpness = ui::Presenter::GuestOutputPaintConfig::
               kCasAdditionalSharpnessDefault;
         }
         new_presenter_config.SetCasAdditionalSharpness(

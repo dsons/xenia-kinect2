@@ -32,7 +32,10 @@ body:
     type: input
     attributes:
       label: What does HID > Kinect... say?
-      description: The coloured line under "Sensor", for example "No Kinect found".
+      description: >-
+        The coloured lines under "Sensor" and under the pictures, for example
+        "No Kinect found" or "Your feet are out of the picture". If a game does not take
+        your moves, please do "Set up where you stand" in the README first.
   - id: version
     type: input
     attributes:

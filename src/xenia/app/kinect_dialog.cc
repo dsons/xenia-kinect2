@@ -26,11 +26,6 @@
 #include "xenia/base/platform_win.h"
 #endif
 
-DEFINE_bool(nui_kinect_seen, false,
-            "Set once a Kinect has worked. Until then the Kinect window opens "
-            "when Xenia starts if nui_window_on_start is set.",
-            "NUI");
-
 DECLARE_bool(nui_window_on_start);
 DECLARE_string(nui_camera);
 DECLARE_int32(nui_kinect2_pan);
@@ -208,6 +203,7 @@ void KinectDialog::UpdatePreview() {
   } else {
     center_distance_m_ = 0.0f;
   }
+  framing_ = CheckFraming(center_distance_m_);
 }
 
 void KinectDialog::DrawSensor() {
@@ -241,15 +237,6 @@ void KinectDialog::DrawSensor() {
   auto status = KinectCamera::Get()->GetStatus();
   // Works means frames arrive, not only that the sensor opened.
   const bool working = status.streaming && status.frames_per_second > 0.0f;
-  if (working && !cvars::nui_kinect_seen) {
-    // The Kinect works: stop opening this window by itself.
-    SetSetting("nui_kinect_seen", true);
-    if (cvars::nui_window_on_start) {
-      SetSetting("nui_window_on_start", false);
-      start_note_ = true;
-    }
-    Save();
-  }
   if (mode == "synthetic") {
     ImGui::TextColored(kGood, "Games see a moving test figure.");
   } else if (mode == "none") {
@@ -380,6 +367,140 @@ void KinectDialog::DetectHardware(bool starting, bool streaming) {
   hardware_checked_ = true;
 }
 
+// Follows the player, the nearest thing in the middle of the picture, up and
+// down a band of columns around them. A row belongs to the player when the
+// band is mostly at their distance and the columns beside it are not; the
+// floor at their feet is at their distance across the whole width. Below the
+// legs there should be floor: something much nearer is in front of the legs,
+// and legs that reach the picture's edge (or its part without depth) are cut
+// off. Dance games compare the whole body, so they need the feet.
+KinectDialog::Framing KinectDialog::CheckFraming(float distance_m) const {
+  if (distance_m < 0.8f || distance_m > 4.5f) {
+    return Framing::kUnknown;
+  }
+  const int d0 = int(distance_m * 1000.0f);
+  const float px_per_m = 525.0f / distance_m;
+  // Where the player is across the picture, from their torso rows.
+  double sum_x = 0.0;
+  int count = 0;
+  for (uint32_t y = kHeight / 3; y < kHeight * 2 / 3; y += 4) {
+    for (uint32_t x = 0; x < kWidth; x += 4) {
+      const int d = depth_[y * kWidth + x];
+      if (d && std::abs(d - d0) < 400) {
+        sum_x += x;
+        ++count;
+      }
+    }
+  }
+  if (count < 40) {
+    return Framing::kUnknown;
+  }
+  const int cx = int(sum_x / count);
+  const int inner = std::max(6, int(0.22f * px_per_m));
+  const int gap = std::max(4, int(0.18f * px_per_m));
+  const int outer = std::max(8, int(0.35f * px_per_m));
+  struct Row {
+    float inside = 0.0f;   // share of the band at the player's distance
+    float outside = 0.0f;  // the same beside the band
+    float valid = 0.0f;    // share of the band with any depth
+    float nearer = 0.0f;   // share of the band well in front of the player
+  };
+  auto row = [&](int y) {
+    Row r;
+    int in_n = 0, out_n = 0;
+    for (int x = cx - inner; x <= cx + inner; x += 2) {
+      if (x < 0 || x >= int(kWidth)) {
+        continue;
+      }
+      const int d = depth_[y * kWidth + x];
+      ++in_n;
+      if (d) {
+        r.valid += 1.0f;
+        if (std::abs(d - d0) < 450) {
+          r.inside += 1.0f;
+        } else if (d < d0 - 450) {
+          r.nearer += 1.0f;
+        }
+      }
+    }
+    for (int side : {-1, 1}) {
+      for (int k = gap; k <= gap + outer; k += 2) {
+        const int x = cx + side * (inner + k);
+        if (x < 0 || x >= int(kWidth)) {
+          continue;
+        }
+        const int d = depth_[y * kWidth + x];
+        ++out_n;
+        if (d && std::abs(d - d0) < 450) {
+          r.outside += 1.0f;
+        }
+      }
+    }
+    if (in_n) {
+      r.inside /= in_n;
+      r.valid /= in_n;
+      r.nearer /= in_n;
+    }
+    if (out_n) {
+      r.outside /= out_n;
+    }
+    return r;
+  };
+  auto is_player = [](const Row& r) {
+    return r.inside > 0.3f && r.outside < 0.5f;
+  };
+  // Down from the torso to the feet.
+  Framing below = Framing::kFeetCut;
+  int misses = 0;
+  for (int y = int(kHeight) / 2; y < int(kHeight); y += 2) {
+    const Row r = row(y);
+    if (is_player(r)) {
+      misses = 0;
+      continue;
+    }
+    if (r.inside > 0.3f && r.outside >= 0.5f) {
+      below = Framing::kGood;  // the floor at their feet
+      break;
+    }
+    if (r.nearer > 0.4f) {
+      below = Framing::kLegsBlocked;  // a table, a chair, a couch arm
+      break;
+    }
+    if (r.valid < 0.3f) {
+      below = Framing::kFeetCut;  // the edge of what the Kinect sees
+      break;
+    }
+    if (++misses > 12) {
+      below = Framing::kGood;  // legs ended: the gap between them, or feet
+      break;
+    }
+  }
+  if (below != Framing::kGood) {
+    return below;
+  }
+  // Up from the torso: the head should end below the top of the picture.
+  for (int y = int(kHeight) / 2; y >= 0; y -= 2) {
+    const Row r = row(y);
+    if (is_player(r)) {
+      if (y <= 6) {
+        return Framing::kHeadCut;
+      }
+      continue;
+    }
+    if (r.valid < 0.3f && r.inside == 0.0f && y > 0) {
+      // Rows without depth above a player who is still there: the edge.
+      const Row next = row(std::max(0, y - 2));
+      if (next.valid < 0.3f) {
+        return y < int(kHeight) / 6 ? Framing::kHeadCut : Framing::kGood;
+      }
+    }
+    if (r.inside < 0.1f) {
+      return Framing::kGood;
+    }
+  }
+  return Framing::kGood;
+}
+
 void KinectDialog::DrawPreview() {
   UpdatePreview();
   const auto status = KinectCamera::Get()->GetStatus();
@@ -401,6 +522,28 @@ void KinectDialog::DrawPreview() {
                        center_distance_m_ < 1.5f   ? "Step back."
                        : center_distance_m_ > 3.2f ? "Come closer."
                                                    : "Good distance.");
+  }
+  switch (framing_) {
+    case Framing::kGood:
+      ImGui::TextColored(kGood, "Whole body in view.");
+      break;
+    case Framing::kFeetCut:
+      ImGui::TextColored(kWarn,
+                         "Your feet are out of the picture. Tilt the Kinect "
+                         "down a little, or stand further back.");
+      break;
+    case Framing::kHeadCut:
+      ImGui::TextColored(kWarn,
+                         "Your head is out of the picture. Tilt the Kinect up "
+                         "a little, or stand further back.");
+      break;
+    case Framing::kLegsBlocked:
+      ImGui::TextColored(kWarn,
+                         "Something is in front of your legs. Move it, or "
+                         "move the Kinect so it sees your feet.");
+      break;
+    default:
+      break;
   }
 }
 
@@ -582,16 +725,15 @@ void KinectDialog::OnDraw(ImGuiIO& io) {
   DrawView();
   DrawMicrophone();
   ImGui::Separator();
-  if (start_note_) {
-    ImGui::TextColored(kGood,
-                       "Your Kinect works. From now on this window opens "
-                       "only from HID > Kinect...");
-  }
   bool on_start = cvars::nui_window_on_start;
   if (ImGui::Checkbox("Open this window when Xenia starts", &on_start)) {
     SetSetting("nui_window_on_start", on_start);
-    start_note_ = false;
     Save();
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip(
+        "Only when a Kinect is plugged in, and not when Xenia is started\n"
+        "with a game (a shortcut or a game launcher).");
   }
   ImGui::TextDisabled("Settings are saved automatically.");
 #if XE_PLATFORM_WIN32

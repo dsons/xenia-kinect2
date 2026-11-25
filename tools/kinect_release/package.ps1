@@ -42,7 +42,7 @@ Set-Content -Path (Join-Path $dist 'xenia-canary.config.toml') -Encoding ASCII -
   'fullscreen_on_game = true',
   '',
   '[NUI]',
-  '# Opens HID > Kinect... at start until a Kinect has worked once.',
+  '# Opens HID > Kinect... at start when a Kinect is plugged in (not when started with a game).',
   'nui_window_on_start = true',
   '',
   '[Profiles]',

@@ -97,12 +97,15 @@ Then:
 2. **Plug in** the adapter's power and its USB cable (straight into the PC).
 3. **Start** `xenia_canary.exe`. The Kinect window opens by itself. If it says the
    driver needs to be set up, press **Set up Kinect driver** and click **Yes**.
-   When you see yourself in the picture, close the window.
+   When you see yourself in the picture and it says **Whole body in view**, close
+   the window (see [Set up where you stand](#set-up-where-you-stand-calibration)).
 4. **Play:** open your game with **File > Open...** It plays fullscreen; **Esc**
    brings the window back, **F11** toggles fullscreen.
 
-The Kinect window opens by itself only until the Kinect has worked once (or
-untick "Open this window when Xenia starts"). After that it is under
+The Kinect window opens every time Xenia starts with a Kinect plugged in, so you
+can check where you stand before choosing a game (untick "Open this window when
+Xenia starts" to stop it). Started with a game, from a shortcut or a game
+launcher, Xenia goes straight into the game. The window is always under
 **HID > Kinect...**
 
 **Drivers:** the only driver needed is Microsoft's WinUSB driver, which is
@@ -121,9 +124,54 @@ The full guide, with troubleshooting, is
 [tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
 the download as README.txt).
 
+## Set up where you stand (calibration)
+
+Do this the first time, after moving furniture or the Kinect, and **whenever a
+game does not see you or does not take your moves**. It takes a minute.
+
+1. Start `xenia_canary.exe`. With a Kinect plugged in, the **Kinect window**
+   opens by itself. (Otherwise open it from the menu: **HID > Kinect...**; press
+   **Esc** first if a game is fullscreen.)
+2. Stand where you will play, facing the Kinect. Look at the right-hand picture
+   (depth): **green** is a good distance, **red** too close, **blue** too far.
+3. Read the line under the pictures and do what it says:
+
+   | The Kinect window says | Do this |
+   | --- | --- |
+   | Whole body in view. | You are set. Close the window and play. |
+   | Your feet are out of the picture. | Tilt the Kinect down a little, or stand further back. |
+   | Your head is out of the picture. | Tilt the Kinect up a little, or stand further back. |
+   | Something is in front of your legs. | Move the coffee table or chair, or move the Kinect so it sees your feet. |
+   | Step back. / Come closer. | Move until it says "Good distance". |
+
+4. Raise both hands above your head: they should stay inside the picture.
+5. **Kinect for Xbox One only:** in a small room, raise **Step back** (games see
+   you as if you stood further away). If you cannot stand in the middle of the
+   room, use **Shift sideways**.
+
+Good to know:
+
+- Games cannot tilt your Kinect for you (on a console they could), so aim it by
+  hand: just above or below the TV, pointing at where you stand.
+- Dance games (Just Dance, Dance Central) compare your **whole body** to the
+  dancer. If your feet are hidden they will see you but not take your poses.
+- A hand held against your face or chest is hard for games to see; keep your
+  hands a little away from your body.
+- Avoid standing in front of a bright window.
+
+| A game... | Usually means | Fix |
+| --- | --- | --- |
+| says to connect a Kinect | the Kinect is not working | Open the Kinect window; follow what it says (driver, power, USB). |
+| does not notice you | you are out of view or too far | Calibrate as above. |
+| sees you but does not take a pose | feet or head out of view, or something in front of your legs | Calibrate as above until it says "Whole body in view." |
+| loses your hand | hand against your body or out of the picture | Keep hands away from your body and inside the picture. |
+| is choppy (Kinect for Xbox One) | a slow USB port | Use another USB 3.0 port, ideally on the back of the PC. |
+
 ## Found a problem?
 
-Please tell us, even if you are not sure it is a bug:
+If a game does not see you or does not take your moves, first do
+[Set up where you stand](#set-up-where-you-stand-calibration) above; it fixes most
+Kinect problems. Otherwise, please tell us, even if you are not sure it is a bug:
 **[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
 (a free GitHub account is needed). A short form asks which Kinect and game you
 used and what happened. Please attach the log files: they record the Kinect, its
@@ -140,6 +188,21 @@ see what others have reported on the
 Problems with games that do not use Kinect belong to the official
 [Xenia Canary](https://github.com/xenia-canary/xenia-canary) instead, but please
 don't report Kinect problems to the Xenia Canary team: this fork is not theirs.
+
+## Legal: your own games only
+
+This project is for **preserving and playing Xbox 360 Kinect games you own**,
+from copies you made yourself of your own discs or your own console's
+downloads. It does not include any games, and it does not help anyone get them:
+
+- No game files, disc images, keys or download links are included, and none may
+  be posted in this project's issues or discussions (they will be deleted).
+- Questions about where to get games will not be answered.
+- Some Xbox Live Arcade games run as their trial unless `license_mask = 1` is
+  set. Only use that for games you bought in full.
+
+Xenia, Kinect support included, is built from public information and the
+reverse engineering of legally purchased hardware and software.
 
 ## Where everything comes from
 
