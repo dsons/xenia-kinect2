@@ -4,7 +4,7 @@ Play Xbox 360 Kinect games on a Windows PC with a real Kinect for Xbox 360 or Ki
 
 - The only driver needed is the WinUSB driver built into Windows; the **Set up Kinect driver** button switches the Kinect to it. No Kinect SDK or other download is needed.
 - Check the Kinect under **HID > Kinect...** before starting a game.
-- Tested games: Kinect Adventures!, Kinect Sports, Kinect Sports: Season Two, Kinect Star Wars, The Gunstringer, Disney Fantasia: Music Evolved, Child of Eden, Just Dance 4, Rise of Nightmares, Dance Central 3, Fruit Ninja Kinect and Kinect Party. Games are not included.
+- Plays: Kinect Adventures!, Kinect Sports: Season Two, Fruit Ninja Kinect. Gets partway: Kinect Sports, Dance Central 3, Rise of Nightmares; Kinect Star Wars, The Gunstringer, Fantasia: Music Evolved, Child of Eden and Kinect Party reach their Kinect start screen. Known issue: Just Dance 4 cannot get past its "Raise hand" start step yet. Games are not included.
 
 This is a fork of Xenia Canary with Kinect support, not the official Xenia Canary. For games that do not use Kinect, the official [Xenia Canary](https://github.com/xenia-canary/xenia-canary) is newer.
 

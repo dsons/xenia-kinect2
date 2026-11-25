@@ -54,28 +54,30 @@ welcome to: it uses the same BSD license.
 
 ## Tested Kinect games
 
-These games start, find the Kinect and follow the player. Their settings are in
+How far each game has been tested. Their settings are in
 [tools/kinect_release/config](tools/kinect_release/config), and two of them also
 need a game fix from [tools/kinect_release/patches](tools/kinect_release/patches).
 Both are included in the download and applied automatically.
 
-| Game | Title ID | Game fix |
+| Game | Title ID | Status |
 | --- | --- | --- |
-| Kinect Adventures! | 4D5308ED | |
-| Kinect Sports | 4D5308C9 | |
-| Kinect Sports: Season Two | 4D5309D6 | |
-| Kinect Star Wars | 4D53090E | |
-| The Gunstringer | 4D5309DF | |
-| Disney Fantasia: Music Evolved | 42560824 | |
-| Child of Eden | 5553084C | |
-| Just Dance 4 | 555308B5 | |
-| Rise of Nightmares | 53450846 | |
-| Dance Central 3 | 373307D9 | Yes |
-| Fruit Ninja Kinect | 58410B79 | |
-| Kinect Party | 5841125C | Yes |
+| Kinect Adventures! | 4D5308ED | Plays |
+| Kinect Sports: Season Two | 4D5309D6 | Plays |
+| Fruit Ninja Kinect | 58410B79 | Plays |
+| Kinect Sports | 4D5308C9 | Starts a sport |
+| Dance Central 3 | 373307D9 | Reaches the main menu (needs its game fix) |
+| Rise of Nightmares | 53450846 | Reaches its menus |
+| Kinect Star Wars | 4D53090E | Reaches its Kinect start screen; not tried further yet |
+| The Gunstringer | 4D5309DF | Reaches its Kinect start screen; not tried further yet |
+| Disney Fantasia: Music Evolved | 42560824 | Reaches its Kinect start screen; not tried further yet |
+| Child of Eden | 5553084C | Reaches its Kinect start screen; not tried further yet |
+| Kinect Party | 5841125C | Reaches its Kinect start screen (needs its game fix); not tried further yet |
+| Just Dance 4 | 555308B5 | **Known issue:** it sees and tracks you, but its "Raise hand" start step does not complete, so you cannot get past it yet |
 
-Other Kinect games may work too, but have not been tried. Games are not
-included: use your own copies.
+Other Kinect games may work too, but have not been tried. If you get further in
+any of these, or another game works, please
+[say so](https://github.com/dsons/xenia-kinect2/issues/new/choose). Games are
+not included: use your own copies.
 
 ## Quick setup
 

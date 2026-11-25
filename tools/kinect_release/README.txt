@@ -160,22 +160,27 @@ the problem can usually be found without more questions.
 TESTED GAMES
 ------------
 
-These games start, find the Kinect and follow the player. Their settings
-(in the config folder) and two game fixes (in the patches folder) are
-applied automatically.
+How far each game has been tested. Their settings (in the config folder) and
+two game fixes (in the patches folder) are applied automatically.
 
-  Kinect Adventures!
-  Kinect Sports
-  Kinect Sports: Season Two
-  Kinect Star Wars
-  The Gunstringer
-  Disney Fantasia: Music Evolved
-  Child of Eden
-  Just Dance 4
-  Rise of Nightmares
-  Dance Central 3
-  Fruit Ninja Kinect
-  Kinect Party
+  Plays:
+    Kinect Adventures!
+    Kinect Sports: Season Two
+    Fruit Ninja Kinect
+
+  Gets partway (not tried further yet):
+    Kinect Sports              starts a sport
+    Dance Central 3            reaches the main menu
+    Rise of Nightmares         reaches its menus
+    Kinect Star Wars, The Gunstringer, Disney Fantasia: Music Evolved,
+    Child of Eden, Kinect Party: reach their Kinect start screen
+
+  Known issue:
+    Just Dance 4               sees and tracks you, but its "Raise hand" start
+                               step does not complete, so you cannot get past it
+
+If you get further in one of these, or another game works, please say so at
+github.com/dsons/xenia-kinect2/issues.
 
 Other Kinect games may work too. Settings for a game go in the config
 folder, in a file named after the game's title ID (Xenia shows it in its
