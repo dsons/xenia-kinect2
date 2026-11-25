@@ -67,6 +67,26 @@ The release's configuration sets `nui_window_on_start`, so the window opens at
 start until a Kinect has delivered frames once (`nui_kinect_seen`); then it is
 turned off and the window says so.
 
+## Diagnostics
+
+Kinect problems mostly come from outside Xenia (the USB port, the driver, the
+adapter), so the log records them in detail:
+
+- At start, `LogKinectReport()` writes the Windows build, the files in the
+  kinect folder (and any missing DLL), every Kinect USB device Windows knows
+  with its driver, version, Device Manager problem code, port and the hubs and
+  USB controller it hangs from, the Kinect settings and the microphones.
+- While a sensor opens, the runtime passes libfreenect's and libfreenect2's
+  informational messages (devices found, firmware, interfaces), then only
+  warnings and errors. A failed open logs the devices again.
+- Streaming logs the time to the first frame, the frames per minute, and any
+  reconnect.
+- The Kinect window logs device changes, Retry, sensor changes and the driver
+  setup's exit code.
+- `kinect\Setup-Kinect.ps1` appends to `kinect\Setup-Kinect.log`: Windows,
+  administrator rights, the Kinect devices before and after, and each binding.
+- The previous run's log is kept as `xenia.previous.log`.
+
 ## Building a release
 
 `Build-Xenia-Kinect2.cmd` (repository root) is the one-step build for players: run

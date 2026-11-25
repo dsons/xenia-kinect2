@@ -104,8 +104,14 @@ the download as README.txt).
 Please tell us, even if you are not sure it is a bug:
 **[report a problem](https://github.com/dsons/xenia-kinect2/issues/new/choose)**
 (a free GitHub account is needed). A short form asks which Kinect and game you
-used and what happened; adding the file `xenia.log` from the Xenia folder helps
-a lot. Ideas and reports that another Kinect game works are welcome too. You can
+used and what happened. Please attach the log files: they record the Kinect, its
+driver and USB port, and what Xenia did, so the problem can usually be found
+without more questions. In **HID > Kinect...** press **Show log files**, then
+drag these into the form:
+
+- `xenia.log`: the last time Xenia ran. If the problem happened in an earlier
+  run, `xenia.previous.log` is the run before it.
+- `kinect\Setup-Kinect.log`, if the driver setup did not work. Ideas and reports that another Kinect game works are welcome too. You can
 see what others have reported on the
 [Issues page](https://github.com/dsons/xenia-kinect2/issues).
 

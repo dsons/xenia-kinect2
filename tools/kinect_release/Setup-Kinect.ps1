@@ -28,20 +28,24 @@ function Log([string]$message) {
   } catch {}
 }
 
-# Every Microsoft Kinect USB device Windows knows, plugged in or not, with its
-# driver and Windows' problem code (0 = none).
+# Every Kinect USB device Windows knows, plugged in or not, with its driver
+# and Windows' problem code (0 = working). Kinect for Xbox 360 / Windows v1:
+# 02AD 02AE 02B0 02BB 02BE 02BF 02C2 02C3; Kinect for Xbox One / v2: 02C4 02D8 02D9.
+$kinectPattern = '^USB\\VID_045E&PID_(02AD|02AE|02B0|02BB|02BE|02BF|02C2|02C3|02C4|02D8|02D9)'
 function Log-Devices([string]$when) {
   Log "Kinect devices ($when):"
-  $devices = @(Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB\\VID_045E&PID_02' })
+  $devices = @(Get-PnpDevice | Where-Object { $_.InstanceId -match $kinectPattern })
   if ($devices.Count -eq 0) { Log '  none' }
+  $keys = 'DEVPKEY_Device_Service', 'DEVPKEY_Device_ProblemCode', 'DEVPKEY_Device_DriverInfPath', 'DEVPKEY_Device_DriverVersion'
   foreach ($d in $devices) {
     $props = @{}
-    foreach ($key in 'DEVPKEY_Device_Service', 'DEVPKEY_Device_ProblemCode', 'DEVPKEY_Device_DriverInfPath', 'DEVPKEY_Device_DriverVersion') {
-      try { $props[$key] = (Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName $key -ErrorAction Stop).Data } catch { $props[$key] = '' }
-    }
-    Log ('  {0} | {1} | status {2} | problem {3} | driver {4} {5} {6}' -f $d.InstanceId, $d.FriendlyName, $d.Status,
-      $props['DEVPKEY_Device_ProblemCode'], $props['DEVPKEY_Device_Service'], $props['DEVPKEY_Device_DriverInfPath'],
-      $props['DEVPKEY_Device_DriverVersion'])
+    try {
+      Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName $keys -ErrorAction Stop |
+        ForEach-Object { $props[$_.KeyName] = $_.Data }
+    } catch {}
+    $state = if ($d.Present) { "status $($d.Status), problem code $($props['DEVPKEY_Device_ProblemCode'])" } else { 'not plugged in now' }
+    Log ('  {0} | {1} | {2} | driver {3} {4} {5}' -f $d.InstanceId, $d.FriendlyName, $state,
+      $props['DEVPKEY_Device_Service'], $props['DEVPKEY_Device_DriverInfPath'], $props['DEVPKEY_Device_DriverVersion'])
   }
 }
 

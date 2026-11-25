@@ -144,7 +144,15 @@ Still stuck, or found a problem? Please report it at
   github.com/dsons/xenia-kinect2/issues
 
 (a free GitHub account is needed). Say which Kinect and game you used and
-what happened, and add the file xenia.log from the Xenia folder.
+what happened, and attach the log files. HID > Kinect... > "Show log files"
+opens the folder that has them:
+
+  xenia.log               the last time Xenia ran
+  xenia.previous.log      the time before that
+  kinect\Setup-Kinect.log  the driver setup, if that did not work
+
+The logs list your Kinect, its driver and USB port, and what Xenia did, so
+the problem can usually be found without more questions.
 
 
 TESTED GAMES

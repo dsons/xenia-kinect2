@@ -46,5 +46,8 @@ body:
   - id: log
     type: textarea
     attributes:
-      label: xenia.log
-      description: Drag the file xenia.log from the Xenia folder into this box.
+      label: Log files
+      description: >-
+        In HID > Kinect... press "Show log files", then drag xenia.log into this box.
+        Also add xenia.previous.log if the problem happened the time before, and
+        kinect\Setup-Kinect.log if the driver setup did not work.

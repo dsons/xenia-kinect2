@@ -594,6 +594,22 @@ void KinectDialog::OnDraw(ImGuiIO& io) {
     Save();
   }
   ImGui::TextDisabled("Settings are saved automatically.");
+#if XE_PLATFORM_WIN32
+  ImGui::SameLine();
+  if (ImGui::SmallButton("Show log files")) {
+    // Explorer with xenia.log selected, for attaching to a problem report.
+    const auto log = xe::filesystem::GetExecutableFolder() / "xenia.log";
+    const std::wstring arguments = L"/select,\"" + log.wstring() + L"\"";
+    ShellExecuteW(nullptr, L"open", L"explorer.exe", arguments.c_str(), nullptr,
+                  SW_SHOWNORMAL);
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip(
+        "Opens the folder with xenia.log. Attach it (and\n"
+        "xenia.previous.log, kinect\\Setup-Kinect.log if there)\n"
+        "to a problem report.");
+  }
+#endif
   ImGui::End();
 }
 
