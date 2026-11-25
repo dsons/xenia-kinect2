@@ -69,7 +69,10 @@ if (-not $vsYear) { throw "Visual Studio $vsMajor is not supported by this scrip
 $cmake = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
 if (-not (Test-Path $cmake)) { $cmake = (Get-Command cmake -ErrorAction Stop).Source }
 $git = (Get-Command git -ErrorAction Stop).Source
-$generator = @('-G', "Visual Studio $vsMajor $vsYear", '-A', 'x64')
+# CMAKE_POLICY_VERSION_MINIMUM: CMake 4 refuses libfreenect's and libfreenect2's
+# old cmake_minimum_required otherwise. Older CMake ignores it.
+$generator = @('-G', "Visual Studio $vsMajor $vsYear", '-A', 'x64',
+  '-DCMAKE_POLICY_VERSION_MINIMUM=3.5')
 
 # Downloads.
 foreach ($dep in $deps) {
