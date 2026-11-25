@@ -72,7 +72,7 @@ Both are included in the download and applied automatically.
 | Disney Fantasia: Music Evolved | 42560824 | Reaches its Kinect start screen; not tried further yet |
 | Child of Eden | 5553084C | Reaches its Kinect start screen; not tried further yet |
 | Kinect Party | 5841125C | Reaches its Kinect start screen (needs its game fix); not tried further yet |
-| Just Dance 4 | 555308B5 | **Known issue:** it sees and tracks you, but its "Raise hand" start step does not complete, so you cannot get past it yet |
+| Just Dance 4 | 555308B5 | Gets past its "Raise hand!" start step and into dancer selection once the Kinect sees your whole body (head to feet); songs not tried yet |
 
 Other Kinect games may work too, but have not been tried. If you get further in
 any of these, or another game works, please
@@ -111,6 +111,11 @@ already part of Windows; the **Set up Kinect driver** button (or
 for Windows SDK, the Kinect Runtime, Zadig or any other download. The Visual C++
 runtime is included in the zip. To undo the driver setup (for example to use
 other Kinect software again), run `kinect\Restore-Kinect.cmd`.
+
+**Most important for playing:** the Kinect has to see you from head to feet, with
+nothing (like a coffee table) in front of your legs. Dance games compare your
+whole body to the dancer on screen and will not take your poses if your feet are
+hidden. Check it in **HID > Kinect...** and tilt or move the Kinect if needed.
 
 The full guide, with troubleshooting, is
 [tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in

@@ -31,10 +31,11 @@
 
 DECLARE_bool(nui_mic);
 
-DEFINE_bool(nui_skeleton_log, false,
+DEFINE_bool(nui_skeleton_log, true,
             "Write every skeleton the game tracks to xenia-skeleton.csv next "
             "to xenia.log (joint positions in metres), to diagnose a pose or "
-            "gesture a game does not take.",
+            "gesture a game does not take. The previous run's file is kept as "
+            "xenia-skeleton.previous.csv; a file past 25 MB starts over.",
             "NUI");
 DEFINE_bool(nui_kinect_id, true,
             "Kinect ID: enroll a newly tracked player as the first signed-in "
@@ -171,14 +172,30 @@ void XamNuiIdentitySetCallback(uint32_t callback) {
 // tracked), tracking id, enrollment index, user index, position, joints.
 // With nui_skeleton_log, every tracked skeleton the game computes goes to
 // xenia-skeleton.csv next to xenia.log, for diagnosing games that do not take
-// a pose or gesture.
+// a pose or gesture. Like xenia.log, the previous file is kept as
+// xenia-skeleton.previous.csv; past kMaxSkeletonLogBytes the current file
+// becomes the previous one, so the latest ~25 minutes are always there.
+constexpr long kMaxSkeletonLogBytes = 25 * 1024 * 1024;
+
 static void LogSkeletons(const uint8_t* b) {
   static std::FILE* file = nullptr;
   static bool opened = false;
+  const auto path =
+      xe::filesystem::GetExecutableFolder() / "xenia-skeleton.csv";
+  if (file && std::ftell(file) > kMaxSkeletonLogBytes) {
+    std::fclose(file);
+    file = nullptr;
+    opened = false;
+  }
   if (!opened) {
     opened = true;
-    const auto path =
-        xe::filesystem::GetExecutableFolder() / "xenia-skeleton.csv";
+    std::error_code error;
+    if (std::filesystem::exists(path, error)) {
+      std::filesystem::rename(
+          path,
+          xe::filesystem::GetExecutableFolder() / "xenia-skeleton.previous.csv",
+          error);
+    }
     file = xe::filesystem::OpenFile(path, "w");
     if (!file) {
       XELOGW("NuiSkeleton: cannot write {}", xe::path_to_utf8(path));

@@ -90,8 +90,13 @@ PLAY
 PLAYING TIPS
 ------------
 
-- Stand about 2 to 3 metres (6 to 10 feet) from the Kinect, facing it, with
-  your whole body in view and nothing between you and the Kinect.
+- Stand about 2 to 3 metres (6 to 10 feet) from the Kinect, facing it. The
+  Kinect must see ALL of you, head to feet, with nothing in front of your
+  legs (a coffee table, the arm of a couch). Dance games compare your whole
+  body to the dancer on screen: if your feet are hidden or out of view, they
+  will not take your poses. Check in HID > Kinect...: your feet should be in
+  the depth picture. If they are not, tilt the Kinect down a little or move
+  it, rather than stepping closer.
 - A bright room helps. Avoid standing right in front of a window.
 - Kinect for Xbox One only: if your room is small or your hands leave the
   picture, open HID > Kinect... and raise "Step back". If you cannot stand in
@@ -117,6 +122,12 @@ IF SOMETHING DOES NOT WORK
 "The Kinect is in use by another program"
   Close other Kinect programs (for example Kinect Studio or camera apps),
   then press "Retry" in HID > Kinect...
+
+A game sees you but does not take a pose or gesture
+  Usually the Kinect cannot see your whole body. Open HID > Kinect... and
+  make sure the depth picture shows you from head to feet with nothing in
+  front of your legs; tilt or move the Kinect until it does. This is what
+  made Just Dance 4 take its "Raise hand!" pose in testing.
 
 The game says to connect a Kinect
   Open HID > Kinect... and check that it says "connected". If it does not,
@@ -175,9 +186,8 @@ two game fixes (in the patches folder) are applied automatically.
     Kinect Star Wars, The Gunstringer, Disney Fantasia: Music Evolved,
     Child of Eden, Kinect Party: reach their Kinect start screen
 
-  Known issue:
-    Just Dance 4               sees and tracks you, but its "Raise hand" start
-                               step does not complete, so you cannot get past it
+    Just Dance 4               reaches dancer selection; needs the Kinect to see
+                               you head to feet (see PLAYING TIPS)
 
 If you get further in one of these, or another game works, please say so at
 github.com/dsons/xenia-kinect2/issues.
