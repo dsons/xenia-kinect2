@@ -275,6 +275,15 @@ std::optional<ImGuiKey> ImGuiDrawer::VirtualKeyToImGuiKey(VirtualKey vkey) {
   }
 }
 
+std::unique_ptr<ImmediateTexture> ImGuiDrawer::CreateImGuiTexture(
+    uint32_t width, uint32_t height, const uint8_t* rgba) {
+  if (!immediate_drawer_) {
+    return {};
+  }
+  return immediate_drawer_->CreateTexture(
+      width, height, ImmediateTextureFilter::kLinear, false, rgba);
+}
+
 std::unique_ptr<ImmediateTexture> ImGuiDrawer::LoadImGuiIcon(
     std::span<const uint8_t> data) {
   if (!immediate_drawer_) {

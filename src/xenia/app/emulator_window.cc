@@ -22,6 +22,7 @@
 
 #include "xenia/app/console_settings_dialog.h"
 #include "xenia/app/content_list_dialog.h"
+#include "xenia/app/kinect_dialog.h"
 #include "xenia/base/assert.h"
 #include "xenia/base/clock.h"
 #include "xenia/base/cvar.h"
@@ -154,6 +155,9 @@ DEFINE_bool(disable_doubleclick_fullscreen, false,
             "Allows the user to disable the behavior where a fast double-click "
             "causes Xenia to enter fullscreen mode.",
             "General");
+DEFINE_bool(nui_window_on_start, false,
+            "Open the Kinect window (HID > Kinect...) when Xenia starts.",
+            "NUI");
 
 namespace xe {
 namespace app {
@@ -271,6 +275,9 @@ void EmulatorWindow::OnEmulatorInitialized() {
   // menu isn't disabled), enter fullscreen if requested.
   if (cvars::fullscreen) {
     SetFullscreen(true);
+  }
+  if (cvars::nui_window_on_start && !kinect_dialog_) {
+    ToggleKinectDialog();
   }
 
   if (IsUseNexusForGameBarEnabled()) {
@@ -888,6 +895,9 @@ bool EmulatorWindow::Initialize() {
     hid_menu->AddChild(MenuItem::Create(
         MenuItem::Type::kString, "&Display controller hotkeys", "",
         std::bind(&EmulatorWindow::DisplayHotKeysConfig, this)));
+    hid_menu->AddChild(
+        MenuItem::Create(MenuItem::Type::kString, "&Kinect...", "",
+                         std::bind(&EmulatorWindow::ToggleKinectDialog, this)));
   }
   main_menu->AddChild(std::move(hid_menu));
 
@@ -1696,6 +1706,18 @@ void EmulatorWindow::ToggleXMPConfigDialog() {
   }
 }
 
+void EmulatorWindow::ToggleKinectDialog() {
+  if (!kinect_dialog_) {
+    kinect_dialog_ = std::make_unique<KinectDialog>(imgui_drawer_.get(), *this);
+  } else {
+    if (kinect_dialog_->IsClosing()) {
+      kinect_dialog_.release();
+    } else {
+      kinect_dialog_.reset();
+    }
+  }
+}
+
 void EmulatorWindow::ToggleConsoleSettingsDialog() {
   if (!console_settings_dialog_) {
     console_settings_dialog_ =
@@ -2462,6 +2484,10 @@ void EmulatorWindow::ClearDialogs() {
 
   if (console_settings_dialog_) {
     console_settings_dialog_.reset();
+  }
+
+  if (kinect_dialog_) {
+    kinect_dialog_.reset();
   }
 
   if (content_list_dialog_) {

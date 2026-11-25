@@ -67,6 +67,10 @@ class ImGuiDrawer : public WindowInputListener, public UIDrawer {
   void ClearDialogs();
   void EnableNotifications(bool enable) { are_notifications_enabled_ = enable; }
 
+  // A texture from width * height R8G8B8A8 pixels, for ImGui::Image.
+  std::unique_ptr<ImmediateTexture> CreateImGuiTexture(uint32_t width,
+                                                       uint32_t height,
+                                                       const uint8_t* rgba);
   std::unique_ptr<ImmediateTexture> LoadImGuiIcon(
       std::span<const uint8_t> data);
   std::map<uint32_t, std::unique_ptr<ImmediateTexture>> LoadIcons(
