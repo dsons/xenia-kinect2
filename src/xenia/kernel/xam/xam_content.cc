@@ -7,9 +7,11 @@
  ******************************************************************************
  */
 
+#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
 #include "xenia/base/string_util.h"
+#include "xenia/emulator.h"
 #include "xenia/kernel/info/file.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/smc.h"
@@ -484,14 +486,89 @@ dword_result_t XamContentCreateInternal_entry(
 }
 DECLARE_XAM_EXPORT1(XamContentCreateInternal, kContent, kImplemented);
 
+// Copies a content package that lives inside the game's file system (for
+// example "game:\Database.xmplr" on the disc) into the host cache, so the
+// container reader can open it as a host file. Reuses the copy when its size
+// still matches.
+static std::filesystem::path CacheGuestPackage(vfs::Entry* entry) {
+  auto cache_dir = kernel_state()->emulator()->cache_root() / "content_files" /
+                   fmt::format("{:08X}", kernel_state()->title_id());
+  auto host_path = cache_dir / xe::to_path(entry->name());
+  std::error_code ec;
+  if (std::filesystem::exists(host_path, ec) &&
+      std::filesystem::file_size(host_path, ec) == entry->size()) {
+    return host_path;
+  }
+  std::filesystem::create_directories(cache_dir, ec);
+
+  vfs::File* file = nullptr;
+  if (entry->Open(vfs::FileAccess::kFileReadData, &file) != X_STATUS_SUCCESS) {
+    return {};
+  }
+  auto tmp_path = host_path;
+  tmp_path += ".part";
+  FILE* out = xe::filesystem::OpenFile(tmp_path, "wb");
+  bool ok = out != nullptr;
+  std::vector<uint8_t> buffer(4 * 1024 * 1024);
+  for (size_t offset = 0; ok && offset < entry->size();) {
+    size_t chunk = std::min(buffer.size(), entry->size() - offset);
+    size_t read = 0;
+    ok = file->ReadSync(std::span<uint8_t>(buffer.data(), chunk), offset,
+                        &read) == X_STATUS_SUCCESS &&
+         read == chunk && fwrite(buffer.data(), 1, chunk, out) == chunk;
+    offset += chunk;
+  }
+  if (out) {
+    fclose(out);
+  }
+  file->Destroy();
+  if (!ok) {
+    std::filesystem::remove(tmp_path, ec);
+    return {};
+  }
+  std::filesystem::rename(tmp_path, host_path, ec);
+  return ec ? std::filesystem::path() : host_path;
+}
+
+// Mounts the content package stored at |path| under |root_name|. Kinect titles
+// use it for the skeletal tracking model ("stexemplar", game:\Database.xmplr)
+// and the identity database ("nuiidentity", game:\NuiIdentity.bin.be).
 dword_result_t XamContentOpenFile_entry(
     dword_t user_index, lpstring_t root_name, lpstring_t path, dword_t flags,
     lpdword_t disposition_ptr, lpdword_t license_mask_ptr,
     pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
-  // TODO(gibbed): arguments assumed based on XamContentCreate.
-  return X_ERROR_FILE_NOT_FOUND;
+  X_RESULT result = X_ERROR_FILE_NOT_FOUND;
+  auto content_manager = kernel_state()->content_manager();
+  if (content_manager->FindPackage(root_name.value())) {
+    result = X_ERROR_ALREADY_EXISTS;
+  } else if (auto entry =
+                 kernel_state()->file_system()->ResolvePath(path.value())) {
+    auto host_path = CacheGuestPackage(entry);
+    if (!host_path.empty() &&
+        content_manager->OpenAndMountPackage(host_path, root_name.value())) {
+      result = X_ERROR_SUCCESS;
+    }
+  }
+  XELOGI("XamContentOpenFile({}, {}) -> {:08X}", root_name.value(),
+         path.value(), result);
+
+  if (disposition_ptr) {
+    *disposition_ptr =
+        XSUCCEEDED(result) ? static_cast<uint32_t>(kDispositionState::Open) : 0;
+  }
+  if (license_mask_ptr) {
+    *license_mask_ptr = 0;
+  }
+  if (overlapped_ptr) {
+    kernel_state()->CompleteOverlappedImmediateEx(
+        overlapped_ptr, result, X_HRESULT_FROM_WIN32(result),
+        XSUCCEEDED(result) ? static_cast<uint32_t>(kDispositionState::Open)
+                           : 0);
+    return X_ERROR_IO_PENDING;
+  }
+  return result;
 }
-DECLARE_XAM_EXPORT1(XamContentOpenFile, kContent, kStub);
+DECLARE_XAM_EXPORT1(XamContentOpenFile, kContent, kImplemented);
 
 dword_result_t XamContentFlush_entry(lpstring_t root_name,
                                      pointer_t<XAM_OVERLAPPED> overlapped_ptr) {

@@ -27,6 +27,11 @@ DEFINE_string(logged_profile_slot_2_xuid, "",
               "XUID of the profile to load on boot in slot 2", "Profiles");
 DEFINE_string(logged_profile_slot_3_xuid, "",
               "XUID of the profile to load on boot in slot 3", "Profiles");
+DEFINE_string(default_profile_gamertag, "",
+              "If set and no slot XUID is given: create a profile with this "
+              "gamertag when none exists, and sign the first profile in to "
+              "slot 0 on boot. Kinect titles want a signed-in player.",
+              "Profiles");
 
 namespace xe {
 namespace kernel {
@@ -131,6 +136,24 @@ ProfileManager::ProfileManager(KernelState* kernel_state,
     Login(xe::string_util::from_string<uint64_t>(
               cvars::logged_profile_slot_3_xuid, true),
           3);
+  }
+}
+
+void ProfileManager::EnsureDefaultProfile() {
+  // Runs once XamState is installed: creating a profile goes through
+  // kernel_state's xam_state, which is still null inside our constructor.
+  if (cvars::default_profile_gamertag.empty() || !logged_profiles_.empty()) {
+    return;
+  }
+  if (accounts_.empty()) {
+    XELOGI("ProfileManager: creating profile '{}'",
+           cvars::default_profile_gamertag);
+    CreateProfile(cvars::default_profile_gamertag, false);
+  }
+  if (!accounts_.empty()) {
+    XELOGI("ProfileManager: signing in {:016X} to slot 0",
+           accounts_.begin()->first);
+    Login(accounts_.begin()->first, 0);
   }
 }
 
@@ -494,7 +517,7 @@ bool ProfileManager::CreateProfile(const std::string gamertag, bool autologin,
   data.xuid = xuid;
   data.set_file_name(fmt::format("{:016X}", xuid));
 
-  if (!kernel_state_->content_manager()->CreateAndMountPackage(
+  if (!content_manager_->CreateAndMountPackage(
           profile_path, fmt::format(kDefaultMountFormat, xuid), data)) {
     return false;
   }

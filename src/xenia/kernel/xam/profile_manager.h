@@ -77,6 +77,9 @@ class ProfileManager {
 
   bool DeleteProfile(const uint64_t xuid);
 
+  // --default_profile_gamertag: create and sign in a profile if none is.
+  void EnsureDefaultProfile();
+
   bool MountProfile(const uint64_t xuid, std::string mount_path = "");
   bool DismountProfile(const uint64_t xuid);
   bool DismountProfile(const std::string_view mount_path);

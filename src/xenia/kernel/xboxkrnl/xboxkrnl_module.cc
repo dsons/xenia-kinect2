@@ -14,6 +14,7 @@
 #include "xenia/kernel/user_module.h"
 #include "xenia/kernel/xboxkrnl/cert_monitor.h"
 #include "xenia/kernel/xboxkrnl/debug_monitor.h"
+#include "xenia/kernel/xboxkrnl/nui_kinect.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_private.h"
 
 DEFINE_string(cl, "", "Specify additional command-line provided to guest.",
@@ -264,7 +265,11 @@ void XboxkrnlModule::RegisterExportTable(
   export_resolver->RegisterTable("xboxkrnl.exe", &xboxkrnl_exports);
 }
 
-XboxkrnlModule::~XboxkrnlModule() = default;
+XboxkrnlModule::~XboxkrnlModule() {
+  // Stop the host sensor with the emulator, so its lights and IR projector
+  // turn off when the title ends.
+  KinectCamera::Get()->Stop();
+}
 
 }  // namespace xboxkrnl
 }  // namespace kernel

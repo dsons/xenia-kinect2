@@ -26,6 +26,12 @@ xe::cpu::Export* RegisterExport_xam(xe::cpu::Export* export_entry);
 #include "xam_module_export_groups.inc"
 #undef XE_MODULE_EXPORT_GROUP
 
+// Kinect identity (xam_nui.cc): the title's callback (message 0x2C009), its
+// per-frame skeleton frame (0x2B002) and the Kinect sign-in UI.
+void XamNuiIdentitySetCallback(uint32_t callback);
+void XamNuiIdentityOnFrame(uint32_t buffer_ptr);
+void XamNuiIdentitySignIn(uint32_t user_index);
+
 }  // namespace xam
 }  // namespace kernel
 }  // namespace xe

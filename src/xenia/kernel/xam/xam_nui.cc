@@ -7,20 +7,39 @@
  ******************************************************************************
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <initializer_list>
+#include <mutex>
+
+#include "xenia/base/clock.h"
 #include "xenia/base/logging.h"
 #include "xenia/emulator.h"
 #include "xenia/kernel/kernel_flags.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_private.h"
+#include "xenia/kernel/xthread.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
 #include "xenia/ui/window.h"
 #include "xenia/ui/windowed_app_context.h"
 #include "xenia/xbox.h"
 
+DECLARE_bool(nui_mic);
+
+DEFINE_bool(nui_kinect_id, true,
+            "Kinect ID: enroll a newly tracked player as the first signed-in "
+            "user without a Kinect slot, so titles find them signed in, as on "
+            "a console where the profile has Kinect sign-in enabled.",
+            "NUI");
+
 namespace xe {
 namespace kernel {
+namespace xboxkrnl {
+bool NuiCameraAvailable();  // xboxkrnl_nui_camera.cc
+}  // namespace xboxkrnl
 namespace xam {
 // https://web.cs.ucdavis.edu/~okreylos/ResDev/Kinect/MainPage.html
 
@@ -64,20 +83,234 @@ dword_result_t XamNuiGetDeviceStatus_entry(
 
   status_ptr.Zero();
 
-  const bool kinect_initialized =
-      kernel_state()->xconfig()->ReadSetting<uint32_t>(
-          X_CONFIG_CATEGORY::XCONFIG_USER_CATEGORY, XCONFIG_USER_RETAIL_FLAGS) &
-      X_RETAIL_FLAGS::KinectInitialized;
+  // The emulated sensor is present when a camera is behind it, whatever the
+  // console's out-of-box (KinectInitialized) flag says.
+  const bool present = xboxkrnl::NuiCameraAvailable();
 
-  status_ptr->status = kinect_initialized;
-  return kinect_initialized ? X_ERROR_SUCCESS : 0xC0050006;
+  // Bit 0: sensor present. Bit 1: microphone array ready; without it Kinect
+  // Sports Season Two never starts the audio source of its speech recognizer.
+  status_ptr->status = present ? (cvars::nui_mic ? 0x3u : 0x1u) : 0u;
+  return present ? X_ERROR_SUCCESS : 0xC0050006;
 }
 DECLARE_XAM_EXPORT1(XamNuiGetDeviceStatus, kNone, kStub);
 
-dword_result_t XamUserNuiGetUserIndex_entry(unknown_t unk, lpdword_t index) {
-  return X_E_NO_SUCH_USER;
+// Kinect identity, the XAM half.
+//
+// The NUI runtime linked into each game recognises players itself (body and
+// face templates in eight "enrollment" slots); XAM only says which signed-in
+// user each enrollment slot belongs to, and drives the runtime when the Kinect
+// sign-in UI runs. The runtime registers a callback with message 0x2C009 and
+// XAM sends it, among others:
+//   0x2C006 {tracking id, enrollment index, flags}  enroll that player (flag
+//           0x20: into the given slot, which must already map to a user)
+//   0x2C007 {tracking id}                           identify that player
+//   0x2C00E {tracking id}                           cancel its op
+//   0x2C00F {}                                      re-read slot -> user
+// 0x2C00F makes the runtime call XamUserNuiGetUserIndex(slot) for all eight
+// slots; a tracked skeleton's dwUserIndex comes from that table once the
+// player is enrolled or identified into a slot. Fruit Ninja waits for that
+// after XamShowNuiSigninUI and otherwise shows "Kinect enrollment: can't see
+// you". The runtime also sends XAM its skeleton frame every frame (0x2B002),
+// which is where XAM learns the tracking ids.
+//
+// Here enrollment slot N belongs to user N once that user has been through
+// the sign-in UI (or enabled biometric sign-in), or, with --nui_kinect_id,
+// once a new player is tracked while user N is signed in without a slot.
+namespace {
+std::mutex identity_mutex_;
+uint32_t identity_callback_ = 0;
+uint32_t identity_bound_ = 0;    // bit N: slot N belongs to user N
+uint32_t identity_pending_ = 0;  // bit N: enroll user N's player next frame
+uint64_t identity_enroll_ms_ = 0;
+uint32_t identity_enroll_slot_ = 0;
+uint32_t identity_retries_ = 0;
+uint32_t identity_auto_id_ = 0;  // tracking id Kinect ID last enrolled
+uint32_t identity_last_[3] = {~0u, ~0u, ~0u};  // logged id/enroll/user
+
+bool UserSignedIn(uint32_t user_index) {
+  return user_index < XUserMaxUserCount &&
+         kernel_state()->xam_state()->GetUserProfile(user_index);
 }
-DECLARE_XAM_EXPORT1(XamUserNuiGetUserIndex, kNone, kStub);
+
+// Sends one message to the title's identity callback on this guest thread.
+uint32_t CallIdentity(uint32_t message,
+                      std::initializer_list<uint32_t> params) {
+  auto memory = kernel_state()->memory();
+  uint32_t buffer = memory->SystemHeapAlloc(0x20);
+  auto p = memory->TranslateVirtual<xe::be<uint32_t>*>(buffer);
+  std::memset(p, 0, 0x20);
+  size_t i = 0;
+  for (uint32_t v : params) {
+    p[i++] = v;
+  }
+  uint64_t args[] = {message, buffer};
+  auto result = static_cast<uint32_t>(kernel_state()->processor()->Execute(
+      XThread::GetCurrentThread()->thread_state(), identity_callback_, args,
+      xe::countof(args)));
+  memory->SystemHeapFree(buffer);
+  XELOGI("NuiIdentity: message {:05X} -> {:08X}", message, result);
+  return result;
+}
+}  // namespace
+
+void XamNuiIdentitySetCallback(uint32_t callback) {
+  std::lock_guard<std::mutex> lock(identity_mutex_);
+  identity_callback_ = callback;
+}
+
+// The title's skeleton frame, sent with message 0x2B002 (0xAE0 bytes): a
+// version (5) and 0x511C, the floor plane and gravity normal at +0x10/+0x20,
+// then six NUI_SKELETON_DATA records 0x1C0 apart from +0x30: state (2 =
+// tracked), tracking id, enrollment index, user index, position, joints.
+void XamNuiIdentityOnFrame(uint32_t buffer_ptr) {
+  if (!buffer_ptr) {
+    return;
+  }
+  auto b =
+      kernel_state()->memory()->TranslateVirtual<const uint8_t*>(buffer_ptr);
+  auto u32 = [&](uint32_t o) { return xe::load_and_swap<uint32_t>(b + o); };
+  if (u32(4) != 5) {  // frame version
+    return;
+  }
+  const uint32_t base = 0x30;
+  uint32_t id = 0, enrollment = ~0u, user = ~0u;
+  uint32_t occupied = 0;  // bit N: a tracked player is in enrollment slot N
+  for (uint32_t s = 0; s < 6; s++) {
+    uint32_t r = base + s * 0x1C0;
+    if (u32(r) != 2) {
+      continue;
+    }
+    if (u32(r + 8) < 8) {
+      occupied |= 1u << u32(r + 8);
+    }
+    if (!id) {
+      id = u32(r + 4);
+      enrollment = u32(r + 8);
+      user = u32(r + 12);
+    }
+  }
+  if (id != identity_last_[0] || enrollment != identity_last_[1] ||
+      user != identity_last_[2]) {
+    identity_last_[0] = id;
+    identity_last_[1] = enrollment;
+    identity_last_[2] = user;
+    XELOGI("NuiIdentity: tracked player id {} enrollment {:X} user {:X}", id,
+           enrollment, user);
+  }
+
+  std::unique_lock<std::mutex> lock(identity_mutex_);
+  if (!identity_callback_ || !id) {
+    return;
+  }
+  // Kinect ID: a player nobody knows yet becomes the first signed-in user no
+  // other tracked player is. That includes a player who left and came back
+  // under a new tracking id: the runtime's own identify op fails (-5) on them.
+  // That op (enrollment -4) is cancelled by the enrollment below.
+  if (cvars::nui_kinect_id && id != identity_auto_id_ && !identity_pending_ &&
+      !identity_enroll_ms_ && enrollment >= 8 && enrollment != 0xFFFFFFFC) {
+    for (uint32_t i = 0; i < XUserMaxUserCount; i++) {
+      if (!(occupied & (1u << i)) && UserSignedIn(i)) {
+        identity_auto_id_ = id;
+        identity_bound_ |= 1u << i;
+        identity_pending_ |= 1u << i;
+        identity_retries_ = 0;
+        XELOGI("NuiIdentity: Kinect ID enrolls player {} as user {}", id, i);
+        break;
+      }
+    }
+  }
+  if (identity_pending_) {
+    // The runtime starts identifying a player as soon as it tracks one, and
+    // an enrollment submitted over that op is lost when the op ends. Cancel
+    // it (0x2C00E) and enroll on the next frame.
+    static bool cancelled = false;
+    if (enrollment == 0xFFFFFFFC && !cancelled) {
+      cancelled = true;
+      lock.unlock();
+      CallIdentity(0x2C00E, {id});
+      return;
+    }
+    cancelled = false;
+    uint32_t slot = 0;
+    while (!(identity_pending_ & (1u << slot))) {
+      slot++;
+    }
+    identity_pending_ &= ~(1u << slot);
+    identity_enroll_ms_ = Clock::QueryHostUptimeMillis();
+    identity_enroll_slot_ = slot;
+    lock.unlock();
+    // Map the slot to its user first: an enrollment into a given slot needs
+    // the slot to belong to someone.
+    CallIdentity(0x2C00F, {});
+    CallIdentity(0x2C006, {id, slot, 0x20});
+    return;
+  }
+  // While an enrollment runs, keep the mapping fresh so the player's
+  // dwUserIndex follows as soon as the runtime puts them in the slot.
+  if (identity_enroll_ms_) {
+    uint64_t now = Clock::QueryHostUptimeMillis();
+    static uint64_t last_refresh = 0;
+    bool done = enrollment < 8 && user < 4;
+    // An op that ends in failure (-5, or -1: not tracked) leaves the player
+    // unknown; submit it again, a few times.
+    if (!done && (enrollment == 0xFFFFFFFB || enrollment == 0xFFFFFFFF) &&
+        now - identity_enroll_ms_ > 500 && identity_retries_ < 5) {
+      identity_retries_++;
+      identity_enroll_ms_ = 0;
+      identity_pending_ |= 1u << identity_enroll_slot_;
+      XELOGI("NuiIdentity: enrollment failed ({:X}), retry {}", enrollment,
+             identity_retries_);
+      return;
+    }
+    if (done || now - identity_enroll_ms_ > 60000) {
+      identity_enroll_ms_ = 0;
+      XELOGI("NuiIdentity: enrollment {}", done ? "done" : "timed out");
+    } else if (now - last_refresh >= 1000) {
+      last_refresh = now;
+      lock.unlock();
+      CallIdentity(0x2C00F, {});
+    }
+  }
+}
+
+// The Kinect sign-in UI: the player in view becomes the signed-in user.
+void XamNuiIdentitySignIn(uint32_t user_index) {
+  std::lock_guard<std::mutex> lock(identity_mutex_);
+  for (uint32_t i = 0; i < XUserMaxUserCount; i++) {
+    if ((user_index == i || user_index >= XUserMaxUserCount) &&
+        UserSignedIn(i)) {
+      if (identity_last_[1] == i && identity_last_[2] == i) {
+        XELOGI("NuiIdentity: sign-in UI: the player is already user {}", i);
+        break;
+      }
+      identity_retries_ = 0;
+      identity_bound_ |= 1u << i;
+      identity_pending_ |= 1u << i;
+      XELOGI("NuiIdentity: sign-in UI binds slot {} to user {}{}", i, i,
+             identity_callback_ ? "" : " (no callback registered)");
+      break;
+    }
+  }
+}
+
+// Which user an enrollment slot belongs to.
+dword_result_t XamUserNuiGetUserIndex_entry(dword_t enrollment_index,
+                                            lpdword_t user_index) {
+  uint32_t e = enrollment_index;
+  bool bound;
+  {
+    std::lock_guard<std::mutex> lock(identity_mutex_);
+    bound = e < XUserMaxUserCount && (identity_bound_ & (1u << e));
+  }
+  if (!bound || !UserSignedIn(e)) {
+    return X_E_NO_SUCH_USER;
+  }
+  if (user_index) {
+    *user_index = e;
+  }
+  return X_E_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamUserNuiGetUserIndex, kNone, kImplemented);
 
 dword_result_t XamUserNuiGetUserIndexForSignin_entry(lpdword_t index) {
   for (uint32_t i = 0; i < XUserMaxUserCount; i++) {
@@ -115,45 +348,98 @@ DECLARE_XAM_EXPORT1(XamNuiSkeletonGetBestSkeletonIndex, kNone, kStub);
    - most require message calls to xam in 0x0002Bxxx area
 */
 
-dword_result_t XamNuiCameraTiltGetStatus_entry(lpvoid_t unk) {
-  /* Notes:
-     - Used by XamNuiCameraElevationGetAngle, and XamNuiCameraSetFlags
-     - if it returns anything greater than -1 then both above functions continue
-     - Both funcs send in a param of *unk = 0x50 bytes to copy
-     - unk2
-     - Ghidra decompile fails
-  */
-  return X_E_FAIL;
-}
-DECLARE_XAM_EXPORT1(XamNuiCameraTiltGetStatus, kNone, kStub);
+// A virtual tilt motor. The host sensor is not moved by the title, so the
+// motor here moves instantly and the picture never changes; what matters is
+// that it answers. Kinect Adventures' auto-tilt polls
+// XamNuiCameraTiltGetStatus and XamNuiCameraElevationGetAngle every frame and
+// fails into error 0x1F ("launch the Kinect Tuner") whenever either fails,
+// which also leaves the menus without a hand cursor.
+//
+// Tilt status block (0x50 bytes, the caller fills size and 'XtSs' magic):
+//   +0x20 int32 accelerometer x, y, z. KA takes the angle as
+//         atan2(z, y) in degrees and the gravity normal as (-x, y, z)/|v|.
+//   +0x2C flags: bits 0-1 motor moving, bit 3 fault, bit 4 seen with
+//         auto-tilt.
+//   +0x30 the floor plane last given to XamNuiCameraRememberFloor (float4;
+//         w == 0 means none, and KA then sweeps for the floor).
+//   +0x40 bit 0: KA skips auto-tilt entirely.
+namespace {
+int32_t tilt_angle_ = 0;
+uint8_t tilt_floor_[16] = {};
+}  // namespace
 
-dword_result_t XamNuiCameraElevationGetAngle_entry(lpqword_t unk1,
-                                                   lpdword_t unk2) {
-  /* Notes:
-     - Xam 12611 does not show what unk1 is used for (Ghidra)
-  */
-  uint32_t tilt_status[] = {0x58745373, 0x50};  // (XtSs)? & bytes to copy
-  X_STATUS result = XamNuiCameraTiltGetStatus_entry(tilt_status);
-  if (XSUCCEEDED(result)) {
-    // operation here
-    // *unk1 = output1
-    // *unk2 = output2
+static void FillTiltStatus(uint8_t* status, uint32_t size) {
+  if (size > 8) {
+    std::memset(status + 8, 0, std::min<uint32_t>(size, 0x50) - 8);
   }
-  return result;
+  if (size < 0x40) {
+    return;
+  }
+  const double a = tilt_angle_ * 3.14159265358979323846 / 180.0;
+  // About 819 counts per g, like the Kinect 1 accelerometer.
+  xe::store_and_swap<int32_t>(status + 0x20, 0);
+  xe::store_and_swap<int32_t>(
+      status + 0x24, static_cast<int32_t>(std::lround(819 * std::cos(a))));
+  xe::store_and_swap<int32_t>(
+      status + 0x28, static_cast<int32_t>(std::lround(819 * std::sin(a))));
+  std::memcpy(status + 0x30, tilt_floor_, sizeof(tilt_floor_));
 }
-DECLARE_XAM_EXPORT1(XamNuiCameraElevationGetAngle, kNone, kStub);
+
+dword_result_t XamNuiCameraTiltGetStatus_entry(lpvoid_t status) {
+  if (!status) {
+    return X_E_INVALIDARG;
+  }
+  uint8_t* block = status.as<uint8_t*>();
+  FillTiltStatus(block, xe::load_and_swap<uint32_t>(block));
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraTiltGetStatus, kNone, kImplemented);
+
+dword_result_t XamNuiCameraElevationGetAngle_entry(lpdword_t angle,
+                                                   lpdword_t moving) {
+  // KA reads the angle as an int32 from the first pointer.
+  if (angle) {
+    *angle = static_cast<uint32_t>(tilt_angle_);
+  }
+  if (moving) {
+    *moving = 0;
+  }
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraElevationGetAngle, kNone, kImplemented);
+
+dword_result_t XamNuiCameraElevationSetAngle_entry(int_t angle) {
+  // The Kinect 1 motor range; KA itself refuses anything past +-27.
+  tilt_angle_ = std::clamp<int32_t>(angle, -27, 27);
+  XELOGI("XamNuiCameraElevationSetAngle({}) -> virtual motor at {}",
+         static_cast<int32_t>(angle), tilt_angle_);
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraElevationSetAngle, kNone, kImplemented);
+
+dword_result_t XamNuiCameraElevationStopMovement_entry() {
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraElevationStopMovement, kNone, kImplemented);
+
+dword_result_t XamNuiCameraRememberFloor_entry(qword_t plane_xy,
+                                               qword_t plane_zw, dword_t unk) {
+  // The floor plane arrives as two registers holding a big-endian float4.
+  xe::store_and_swap<uint64_t>(tilt_floor_, plane_xy);
+  xe::store_and_swap<uint64_t>(tilt_floor_ + 8, plane_zw);
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraRememberFloor, kNone, kImplemented);
+
+dword_result_t XamNuiCameraTiltReportStatus_entry(dword_t message,
+                                                  lpvoid_t data) {
+  // Telemetry (KA sends 0x2B006 / 0x2B00C with the auto-tilt result).
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraTiltReportStatus, kNone, kStub);
 
 dword_result_t XamNuiCameraGetTiltControllerType_entry() {
   /* Notes:
-     - undefined unk[8]
-     - undefined8 local_28;
-     - undefined8 local_20;
-     - undefined8 local_18;
-     - undefined4 local_10;
-     - local_20 = 0;
-     - local_18 = 0;
-     - local_10 = 0;
-     - local_28 = 0xf030000000000;
      - calls DetroitDeviceRequest(unk) -> result
      - returns (ulonglong)(LZCOUNT(result) << 0x20) >> 0x25
   */
@@ -166,20 +452,20 @@ dword_result_t XamNuiCameraSetFlags_entry(qword_t unk1, dword_t unk2) {
      - if XamNuiCameraGetTiltControllerType returns 1 then operation is done
      - else 0xffffffff8007048f
   */
-  X_STATUS result = X_E_DEVICE_NOT_CONNECTED;
-  int Controller_Type = XamNuiCameraGetTiltControllerType_entry();
-
-  if (Controller_Type == 1) {
-    uint32_t tilt_status[] = {0x58745373, 0x50};  // (XtSs)? & bytes to copy
-    result = XamNuiCameraTiltGetStatus_entry(tilt_status);
-    if (XSUCCEEDED(result)) {
-      // op here
-      // result =
-    }
-  }
-  return result;
+  return X_E_DEVICE_NOT_CONNECTED;
 }
 DECLARE_XAM_EXPORT1(XamNuiCameraSetFlags, kNone, kStub);
+
+dword_result_t XamNuiCameraTiltSetCallback_entry(lpvoid_t callback,
+                                                 lpvoid_t context) {
+  // Registers a routine the tilt motor calls when it finishes moving. There
+  // is no motor here, so it is never called.
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamNuiCameraTiltSetCallback, kNone, kStub);
+
+dword_result_t XamCacheReset_entry(dword_t unk) { return X_ERROR_SUCCESS; }
+DECLARE_XAM_EXPORT1(XamCacheReset, kNone, kStub);
 
 dword_result_t XamIsNuiUIActive_entry() {
   return kernel_state()->xam_state()->is_xam_dialog_present_.load();
@@ -453,11 +739,73 @@ dword_result_t XamNuiIdentityAbort_entry(dword_t unk) {
 DECLARE_XAM_EXPORT1(XamNuiIdentityAbort, kNone, kStub);
 
 // Other
+// Biometric (Kinect ID) sign-in on or off for a profile: on binds the user's
+// enrollment slot.
 dword_result_t XamUserNuiEnableBiometric_entry(dword_t user_index,
                                                int_t enable) {
-  return X_E_INVALIDARG;
+  XELOGI("XamUserNuiEnableBiometric(user {}, {})",
+         static_cast<uint32_t>(user_index), static_cast<int32_t>(enable));
+  if (user_index >= XUserMaxUserCount ||
+      !kernel_state()->xam_state()->GetUserProfile(user_index)) {
+    return X_E_INVALIDARG;
+  }
+  std::lock_guard<std::mutex> lock(identity_mutex_);
+  if (enable) {
+    identity_bound_ |= 1u << user_index;
+  } else {
+    identity_bound_ &= ~(1u << user_index);
+  }
+  return X_E_SUCCESS;
 }
-DECLARE_XAM_EXPORT1(XamUserNuiEnableBiometric, kNone, kStub);
+DECLARE_XAM_EXPORT1(XamUserNuiEnableBiometric, kNone, kSketchy);
+
+// The Kinect enrollment slot of a signed-in user, once bound: its own index.
+dword_result_t XamUserNuiGetEnrollmentIndex_entry(dword_t user_index,
+                                                  lpdword_t enrollment_index) {
+  XELOGI("XamUserNuiGetEnrollmentIndex(user {})",
+         static_cast<uint32_t>(user_index));
+  if (!UserSignedIn(user_index)) {
+    return X_E_NO_SUCH_USER;
+  }
+  {
+    std::lock_guard<std::mutex> lock(identity_mutex_);
+    if (!(identity_bound_ & (1u << user_index))) {
+      return X_E_NO_SUCH_USER;
+    }
+  }
+  if (enrollment_index) {
+    *enrollment_index = static_cast<uint32_t>(user_index);
+  }
+  return X_E_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamUserNuiGetEnrollmentIndex, kNone, kSketchy);
+
+// Stored biometric templates per XUID: there are none to read, and a written
+// one is accepted and dropped (enrollment repeats each session).
+dword_result_t XamReadBiometricData_entry(qword_t xuid, lpdword_t version,
+                                          lpvoid_t buffer, lpdword_t size,
+                                          lpvoid_t overlapped) {
+  return X_ERROR_NOT_FOUND;
+}
+DECLARE_XAM_EXPORT1(XamReadBiometricData, kNone, kStub);
+
+dword_result_t XamWriteBiometricData_entry(qword_t xuid, lpdword_t version,
+                                           lpvoid_t buffer, lpdword_t size,
+                                           lpvoid_t overlapped) {
+  XELOGI("XamWriteBiometricData({:016X})", static_cast<uint64_t>(xuid));
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamWriteBiometricData, kNone, kStub);
+
+dword_result_t XamCacheOpenFile_entry(lpvoid_t params) {
+  return X_ERROR_FILE_NOT_FOUND;
+}
+DECLARE_XAM_EXPORT1(XamCacheOpenFile, kNone, kStub);
+
+dword_result_t XamCacheCloseFile_entry(lpvoid_t params, dword_t unk) {
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamCacheCloseFile, kNone, kStub);
 
 void XamNuiPlayerEngagementUpdate_entry(qword_t unk1, unknown_t unk2,
                                         lpunknown_t unk3) {

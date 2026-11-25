@@ -33,6 +33,7 @@ DEFINE_bool(storage_selection_dialog, false,
             "UI");
 
 DECLARE_int32(license_mask);
+DECLARE_string(default_profile_gamertag);
 
 constexpr std::chrono::milliseconds kUIDelayMillis(200);
 
@@ -596,6 +597,19 @@ dword_result_t XamShowDeviceSelectorUI_entry(
 }
 DECLARE_XAM_EXPORT1(XamShowDeviceSelectorUI, kUI, kImplemented);
 
+// The Kinect device selector: one leading argument (a NUI tracking value,
+// unused here), then XamShowDeviceSelectorUI's. Kinect Adventures calls it
+// from the main menu and shows "No storage device" if it is missing.
+dword_result_t XamShowNuiDeviceSelectorUI_entry(
+    dword_t nui_unknown, dword_t user_index, dword_t content_type,
+    dword_t content_flags, qword_t total_requested, lpdword_t device_id_ptr,
+    pointer_t<XAM_OVERLAPPED> overlapped) {
+  return XamShowDeviceSelectorUI_entry(user_index, content_type, content_flags,
+                                       total_requested, device_id_ptr,
+                                       overlapped);
+}
+DECLARE_XAM_EXPORT1(XamShowNuiDeviceSelectorUI, kUI, kImplemented);
+
 void XamShowDirtyDiscErrorUI_entry(dword_t user_index) {
   if (cvars::headless) {
     assert_always();
@@ -952,7 +966,10 @@ X_RESULT xeXamShowSigninUI(uint32_t user_index, uint32_t users_needed,
     return X_ERROR_INVALID_PARAMETER;
   }
 
-  if (cvars::headless) {
+  // With --default_profile_gamertag the profile is already chosen: answer the
+  // sign-in UI (Kinect titles raise it for enrollment) with the signed-in
+  // profiles instead of waiting on a dialog nobody is there to click.
+  if (cvars::headless || !cvars::default_profile_gamertag.empty()) {
     return xeXamDispatchHeadlessAsync([users_needed]() {
       std::map<uint8_t, uint64_t> xuids;
 
@@ -1030,8 +1047,13 @@ dword_result_t XamShowNuiSigninUI_entry(dword_t unk, dword_t user_index,
                                         dword_t flags) {
   uint32_t users_needed = 1;
   uint32_t sent_flags = flags | static_cast<uint32_t>(SigninUiFlags::NUI);
+  XELOGI("XamShowNuiSigninUI({:X}, user {}, flags {:X})",
+         static_cast<uint32_t>(unk), static_cast<uint32_t>(user_index),
+         static_cast<uint32_t>(flags));
   // xeXamNuiHudCheck(unk) = success then continue else return
-  return xeXamShowSigninUI(user_index, users_needed, sent_flags);
+  X_RESULT result = xeXamShowSigninUI(user_index, users_needed, sent_flags);
+  XamNuiIdentitySignIn(user_index);
+  return result;
 }
 DECLARE_XAM_EXPORT1(XamShowNuiSigninUI, kUserProfiles, kSketchy);
 

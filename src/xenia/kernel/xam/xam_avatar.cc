@@ -8,6 +8,8 @@
  */
 
 #include "xenia/kernel/xam/xam_avatar.h"
+
+#include <cstring>
 #include "xenia/base/logging.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_private.h"
@@ -125,10 +127,29 @@ dword_result_t XamAvatarGetManifestsByXuid_entry(
 }
 DECLARE_XAM_EXPORT1(XamAvatarGetManifestsByXuid, kAvatars, kStub)
 
+// Kinect Sports Season Two's Football waits, in a synchronous loop, for its
+// avatar team's asset load to succeed; a failed load is never retried and the
+// loading screen spins forever. For it, report success with an empty asset
+// set. The result buffer is zeroed, so its component count (+8) and arrays
+// (+0xC, +0x10) are empty, and +0 points at an empty skeleton block
+// {bone count 0, bones 0} at +0x40: KS2 dereferences +0 unconditionally.
+// Kinect Sports (4D5308C9, the same Rare engine) ignores the failure and walks
+// the result anyway: an uninitialised physical page, so it crashed at boot
+// right after the Rare logo. Other titles keep the failure (58410907 crashed
+// on success).
+constexpr uint32_t kEmptyAvatarAssetsResultSize = 0x80;
+constexpr uint32_t kEmptyAvatarSkeletonOffset = 0x40;
+static bool AvatarAssetsSucceedEmpty() {
+  const uint32_t title_id = kernel_state()->title_id();
+  return title_id == 0x4D5309D6 ||  // Kinect Sports Season Two
+         title_id == 0x4D5308C9;    // Kinect Sports
+}
+
 dword_result_t XamAvatarGetAssetsResultSize_entry(
     dword_t avatar_component_mask, lpdword_t result_buffer_size_ptr,
     lpdword_t gpu_resource_buffer_size_ptr) {
-  *result_buffer_size_ptr = 0;
+  *result_buffer_size_ptr =
+      AvatarAssetsSucceedEmpty() ? kEmptyAvatarAssetsResultSize : 0;
   *gpu_resource_buffer_size_ptr = 0;
 
   return X_STATUS_SUCCESS;
@@ -140,6 +161,20 @@ dword_result_t XamAvatarGetAssets_entry(
     dword_t avatar_component_mask, dword_t flags, lpdword_t result_buffer_ptr,
     lpdword_t gpu_resource_buffer_ptr,
     pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (AvatarAssetsSucceedEmpty()) {
+    if (result_buffer_ptr) {
+      auto result = static_cast<xe::be<uint32_t>*>(result_buffer_ptr);
+      std::memset(result, 0, kEmptyAvatarAssetsResultSize);
+      result[0] =
+          result_buffer_ptr.guest_address() + kEmptyAvatarSkeletonOffset;
+    }
+    if (overlapped_ptr) {
+      kernel_state()->CompleteOverlappedImmediate(overlapped_ptr,
+                                                  X_ERROR_SUCCESS);
+      return X_ERROR_IO_PENDING;
+    }
+    return X_ERROR_SUCCESS;
+  }
   // 58410907 doesn't crash if we return failure.
   if (overlapped_ptr) {
     kernel_state()->CompleteOverlappedImmediateEx(
@@ -222,6 +257,9 @@ DECLARE_XAM_EXPORT1(XamAvatarGetMetadataRandom, kAvatars, kStub);
 
 dword_result_t XamAvatarGetMetadataSignedOutProfileCount_entry(
     lpdword_t profile_count_ptr, pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (profile_count_ptr) {
+    *profile_count_ptr = 0;
+  }
   if (overlapped_ptr) {
     kernel_state()->CompleteOverlappedImmediate(overlapped_ptr,
                                                 X_ERROR_SUCCESS);

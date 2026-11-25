@@ -12,6 +12,7 @@
 #include "xenia/base/logging.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/xam/xam_content_device.h"
+#include "xenia/kernel/xam/xam_private.h"
 #include "xenia/kernel/xenumerator.h"
 
 /* Notes:
@@ -149,6 +150,36 @@ X_HRESULT XamApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       XELOGD("XTitleGetDeploymentType({:08X}, {:08X}",
              data->deployment_type_ptr.get(), data->overlapped_ptr.get());
       return X_E_SUCCESS;
+    }
+    case 0x0002B002:
+      // The title's skeleton frame, every frame from its NUI worker.
+      XamNuiIdentityOnFrame(buffer_ptr);
+      return X_E_SUCCESS;
+    case 0x0002B001:
+    case 0x0002B004: {
+      // Kinect HUD/camera bookkeeping. Kinect Adventures sends 0x2B001 with a
+      // 4 byte argument right after NuiInitialize, 0x2B002 from its NUI
+      // worker and 0x2B004 at NuiShutdown; none of their results are read.
+      XELOGD("XamUnk{:05X}({:08X}, {:08X})", message, buffer_ptr,
+             buffer_length);
+      return X_E_SUCCESS;
+    }
+    case 0x0002C009: {
+      // NuiIdentity registers its event callback (one pointer). NUI's
+      // identity init returns this result, and a failure there fails
+      // NuiInitialize. The Kinect sign-in UI drives it (xam_nui.cc).
+      uint32_t callback = buffer ? xe::load_and_swap<uint32_t>(buffer) : 0;
+      XELOGD("XamNuiIdentityRegisterCallback({:08X}) -> {:08X}", buffer_ptr,
+             callback);
+      XamNuiIdentitySetCallback(callback);
+      return X_E_SUCCESS;
+    }
+    case 0x0002C00C: {
+      // NuiIdentity database transfer. Its callers treat failure as "no
+      // enrolled identities", which is what an emulated console has.
+      XELOGD("XamNuiIdentityTransfer({:08X}, {:08X}) -> fail", buffer_ptr,
+             buffer_length);
+      return X_E_FAIL;
     }
     case 0x0002B003: {
       // Games used in:
