@@ -176,11 +176,10 @@ struct KinectCamera::Impl {
                                             : "did not start");
       in_use |= result == kRuntimeOpenFailed;
     }
-    SetMessage(
-        in_use ? "The Kinect is in use by another program. Close it and "
-                 "press Retry."
-               : "No Kinect found. Check that it is plugged in and its "
-                 "adapter has power, then press Retry.");
+    SetMessage(in_use ? "The Kinect is in use by another program. Close it and "
+                        "press Retry."
+                      : "No Kinect found. Check that it is plugged in and its "
+                        "adapter has power, then press Retry.");
     return KinectSensorKind::kNone;
   }
 
