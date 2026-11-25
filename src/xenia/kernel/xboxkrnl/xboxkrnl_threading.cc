@@ -832,6 +832,33 @@ dword_result_t NtReleaseSemaphore_entry(dword_t sem_handle,
 DECLARE_XBOXKRNL_EXPORT2(NtReleaseSemaphore, kThreading, kImplemented,
                          kHighFrequency);
 
+void KeInitializeMutant_entry(pointer_t<X_KMUTANT> mutant_ptr,
+                              dword_t initial_owner) {
+  mutant_ptr.Zero();
+  mutant_ptr->header.type = MutantObject;
+  mutant_ptr->header.signal_state = initial_owner ? 0 : 1;
+  auto mutant = XObject::GetNativeObject<XMutant>(kernel_state(), mutant_ptr,
+                                                  MutantObject);
+  if (!mutant) {
+    assert_always();
+  }
+}
+DECLARE_XBOXKRNL_EXPORT1(KeInitializeMutant, kThreading, kImplemented);
+
+dword_result_t KeReleaseMutant_entry(pointer_t<X_KMUTANT> mutant_ptr,
+                                     dword_t increment, dword_t abandoned,
+                                     dword_t wait) {
+  auto mutant = XObject::GetNativeObject<XMutant>(kernel_state(), mutant_ptr,
+                                                  MutantObject);
+  if (!mutant) {
+    assert_always();
+    return 0;
+  }
+  mutant->ReleaseMutant(increment, false, !!wait);
+  return 0;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeReleaseMutant, kThreading, kImplemented);
+
 dword_result_t NtCreateMutant_entry(
     lpdword_t handle_out, pointer_t<X_OBJECT_ATTRIBUTES> obj_attributes,
     dword_t initial_owner) {
@@ -1950,6 +1977,50 @@ void KeInitializeTimerEx_entry(pointer_t<X_KTIMER> timer, dword_t type,
   xeKeInitializeTimerEx(timer, type, proctype & 0xFF, context);
 }
 DECLARE_XBOXKRNL_EXPORT1(KeInitializeTimerEx, kThreading, kImplemented);
+
+// Kinect Sports Season Two arms a KTIMER with KeSetTimer and a worker thread
+// waits on it; without these the wait failed at once and the thread spun.
+// The timer is backed by an XTimer (XObject::GetNativeObject). A DPC passed
+// with it is not run yet.
+dword_result_t KeSetTimerEx_entry(pointer_t<X_KTIMER> timer, qword_t due_time,
+                                  dword_t period_ms, lpvoid_t dpc) {
+  auto xtimer = XObject::GetNativeObject<XTimer>(kernel_state(), timer);
+  if (!xtimer) {
+    return 0;
+  }
+  if (dpc) {
+    static bool logged = false;
+    if (!logged) {
+      logged = true;
+      XELOGW("KeSetTimerEx: DPC {:08X} ignored", dpc.guest_address());
+    }
+  }
+  bool was_set = timer->header.inserted != 0;
+  timer->header.inserted = 1;
+  timer->header.signal_state = 0;
+  xtimer->SetTimer(static_cast<int64_t>(due_time.value()), period_ms, 0, 0,
+                   false);
+  return was_set ? 1 : 0;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeSetTimerEx, kThreading, kImplemented);
+
+dword_result_t KeSetTimer_entry(pointer_t<X_KTIMER> timer, qword_t due_time,
+                                lpvoid_t dpc) {
+  return KeSetTimerEx_entry(timer, due_time, 0, dpc);
+}
+DECLARE_XBOXKRNL_EXPORT1(KeSetTimer, kThreading, kImplemented);
+
+dword_result_t KeCancelTimer_entry(pointer_t<X_KTIMER> timer) {
+  auto xtimer = XObject::GetNativeObject<XTimer>(kernel_state(), timer);
+  if (!xtimer) {
+    return 0;
+  }
+  bool was_set = timer->header.inserted != 0;
+  timer->header.inserted = 0;
+  xtimer->Cancel();
+  return was_set ? 1 : 0;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeCancelTimer, kThreading, kImplemented);
 
 }  // namespace xboxkrnl
 }  // namespace kernel

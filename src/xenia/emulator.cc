@@ -1394,6 +1394,27 @@ bool Emulator::ExceptionCallback(Exception* ex) {
   }
 
   // Within range. Pause the emulator and eat the exception.
+  {
+    // Log the fault before pausing: Pause() may not return when the faulting
+    // thread holds a lock another guest thread is waiting on.
+    auto* t = kernel::XThread::GetCurrentThread();
+    auto* gf = processor()->backend()->code_cache()->LookupFunction(ex->pc());
+    auto* c = t ? t->thread_state()->context() : nullptr;
+    XELOGE("Guest crash: thread {:08X} pc {:08X} fault {:016X} code {}",
+           t ? t->handle() : 0,
+           gf ? gf->MapMachineCodeToGuestAddress(ex->pc()) : 0,
+           ex->code() == Exception::Code::kAccessViolation ? ex->fault_address()
+                                                           : 0,
+           static_cast<int>(ex->code()));
+    if (c) {
+      std::string regs;
+      for (int i = 0; i < 32; i++) {
+        regs += fmt::format(" r{}={:08X}", i, uint32_t(c->r[i]));
+      }
+      XELOGE("Guest crash: lr {:08X}{}", uint32_t(c->lr), regs);
+    }
+    xe::FlushLog();
+  }
   Pause();
 
   // Dump information into the log.

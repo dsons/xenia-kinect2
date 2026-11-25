@@ -36,6 +36,12 @@ void XTimer::Initialize(uint32_t timer_type) {
   assert_not_null(timer_);
 }
 
+void XTimer::InitializeNative(void* native_ptr, X_DISPATCH_HEADER* header) {
+  Initialize(header->type == X_OBJECT_TYPES::TimerSynchronizationObject ? 1
+                                                                        : 0);
+  SetNativePointer(memory()->HostToGuestVirtual(native_ptr), true);
+}
+
 X_STATUS XTimer::SetTimer(int64_t due_time, uint32_t period_ms,
                           uint32_t routine, uint32_t routine_arg, bool resume) {
   using xe::chrono::WinSystemClock;

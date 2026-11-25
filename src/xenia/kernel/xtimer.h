@@ -29,6 +29,9 @@ class XTimer : public XObject {
   ~XTimer() override;
 
   void Initialize(uint32_t timer_type);
+  // A KTIMER in guest memory (KeInitializeTimerEx), first seen by a wait or
+  // KeSetTimerEx.
+  void InitializeNative(void* native_ptr, X_DISPATCH_HEADER* header);
 
   X_STATUS SetTimer(int64_t due_time, uint32_t period_ms, uint32_t routine,
                     uint32_t routine_arg, bool resume);

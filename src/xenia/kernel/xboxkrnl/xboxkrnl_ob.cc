@@ -16,9 +16,49 @@
 #include "xenia/kernel/xthread.h"
 #include "xenia/xbox.h"
 
+#include <mutex>
+#include <unordered_map>
+
 namespace xe {
 namespace kernel {
 namespace xboxkrnl {
+
+// Objects the guest created with ObCreateObject from a type that has a guest
+// close procedure (body address -> X_OBJECT_TYPE). The kernel calls that
+// procedure from NtClose; without it, guest code that frees per-object state
+// in its close procedure (the NUI image streams: a closed stream's slot is
+// only marked free there) never sees the close.
+static std::mutex guest_typed_objects_mutex_;
+static std::unordered_map<uint32_t, uint32_t> guest_typed_objects_;
+
+static void TrackGuestTypedObject(PPCContext* context,
+                                  X_OBJECT_TYPE* object_factory,
+                                  uint32_t body) {
+  if (!object_factory->close_proc) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(guest_typed_objects_mutex_);
+  guest_typed_objects_[body] = context->HostToGuestVirtual(object_factory);
+}
+
+// The object's header if it is a tracked guest-typed object, else null.
+static X_OBJECT_HEADER* GuestTypedObjectHeader(PPCContext* context,
+                                               uint32_t body,
+                                               uint32_t* type_ptr) {
+  std::lock_guard<std::mutex> lock(guest_typed_objects_mutex_);
+  auto it = guest_typed_objects_.find(body);
+  if (it == guest_typed_objects_.end()) {
+    return nullptr;
+  }
+  auto header = context->TranslateVirtual<X_OBJECT_HEADER*>(
+      body - static_cast<uint32_t>(sizeof(X_OBJECT_HEADER)));
+  if (header->object_type_ptr != it->second) {
+    guest_typed_objects_.erase(it);  // freed and reused for something else
+    return nullptr;
+  }
+  *type_ptr = it->second;
+  return header;
+}
 
 void xeObSplitName(X_ANSI_STRING input_string,
                    X_ANSI_STRING* leading_path_component,
@@ -98,6 +138,7 @@ uint32_t xeObCreateObject(X_OBJECT_TYPE* object_factory,
       new_object_header->flags = resulting_header_flags;
 
       *out_object = allocation + sizeof(X_OBJECT_HEADER);
+      TrackGuestTypedObject(context, object_factory, *out_object);
       return X_STATUS_SUCCESS;
     }
     return X_STATUS_INSUFFICIENT_RESOURCES;
@@ -171,6 +212,7 @@ uint32_t xeObCreateObject(X_OBJECT_TYPE* object_factory,
   header_for_named_object->flags =
       resulting_header_flags & 0xFFFE | OBJECT_HEADER_FLAG_NAMED_OBJECT;
   *out_object = context->HostToGuestVirtual(&header_for_named_object[1]);
+  TrackGuestTypedObject(context, object_factory, *out_object);
   return X_STATUS_SUCCESS;
 }
 dword_result_t ObOpenObjectByName_entry(lpunknown_t obj_attributes_ptr,
@@ -207,7 +249,8 @@ DECLARE_XBOXKRNL_EXPORT1(ObOpenObjectByName, kNone, kImplemented);
 // chrispy: investigate this, pretty certain it does not properly emulate the
 // original
 dword_result_t ObOpenObjectByPointer_entry(lpvoid_t object_ptr,
-                                           lpdword_t out_handle_ptr) {
+                                           lpdword_t out_handle_ptr,
+                                           const ppc_context_t& ctx) {
   *out_handle_ptr = 0;
   auto object = XObject::GetNativeObject<XObject>(kernel_state(), object_ptr);
   if (!object) {
@@ -217,6 +260,11 @@ dword_result_t ObOpenObjectByPointer_entry(lpvoid_t object_ptr,
   // Retain the handle. Will be released in NtClose.
   object->RetainHandle();
   *out_handle_ptr = object->handle();
+  uint32_t type_ptr;
+  if (auto header =
+          GuestTypedObjectHeader(ctx, object_ptr.guest_address(), &type_ptr)) {
+    header->handle_count = header->handle_count + 1;
+  }
   return X_STATUS_SUCCESS;
 }
 DECLARE_XBOXKRNL_EXPORT1(ObOpenObjectByPointer, kNone, kImplemented);
@@ -244,7 +292,8 @@ DECLARE_XBOXKRNL_EXPORT1(ObLookupAnyThreadByThreadId, kNone, kImplemented);
 
 dword_result_t ObReferenceObjectByHandle_entry(dword_t handle,
                                                dword_t object_type_ptr,
-                                               lpdword_t out_object_ptr) {
+                                               lpdword_t out_object_ptr,
+                                               const ppc_context_t& ctx) {
   // chrispy: gotta preinit this to 0, kernel is expected to do that
   *out_object_ptr = 0;
 
@@ -255,7 +304,17 @@ dword_result_t ObReferenceObjectByHandle_entry(dword_t handle,
 
   uint32_t native_ptr = object->guest_object();
 
-  if (object_type_ptr) {
+  // A guest-typed object (ObCreateObject with the guest's own X_OBJECT_TYPE)
+  // is backed by a host object of a built-in type, e.g. an XEvent for a body
+  // that starts with a KEVENT. Its type is the guest's, not the host's.
+  uint32_t guest_type_ptr = 0;
+  bool guest_typed =
+      native_ptr && GuestTypedObjectHeader(ctx, native_ptr, &guest_type_ptr);
+  if (guest_typed && object_type_ptr && object_type_ptr != guest_type_ptr) {
+    return X_STATUS_OBJECT_TYPE_MISMATCH;
+  }
+
+  if (object_type_ptr && !guest_typed) {
     auto& object_types =
         kernel_state()->host_object_type_enum_to_guest_object_type_ptr_;
 
@@ -296,7 +355,7 @@ dword_result_t ObReferenceObjectByName_entry(pointer_t<X_ANSI_STRING> name,
       kernel_state()->object_table()->GetObjectByName(name_str, &handle);
   if (XSUCCEEDED(result)) {
     return ObReferenceObjectByHandle_entry(handle, object_type_ptr,
-                                           out_object_ptr);
+                                           out_object_ptr, ctx);
   }
 
   return result;
@@ -415,7 +474,28 @@ uint32_t NtClose(uint32_t handle) {
   return kernel_state()->object_table()->ReleaseHandle(handle);
 }
 
-dword_result_t NtClose_entry(dword_t handle) { return NtClose(handle); }
+dword_result_t NtClose_entry(dword_t handle, const ppc_context_t& ctx) {
+  // Guest-typed object: run its close procedure first, as the kernel does,
+  // with the handle count before this handle goes.
+  uint32_t body = 0;
+  if (auto object =
+          kernel_state()->object_table()->LookupObject<XObject>(handle)) {
+    body = object->guest_object();
+  }
+  uint32_t type_ptr;
+  X_OBJECT_HEADER* header =
+      body ? GuestTypedObjectHeader(ctx, body, &type_ptr) : nullptr;
+  if (header && header->handle_count > 0) {
+    auto type = ctx->TranslateVirtual<X_OBJECT_TYPE*>(type_ptr);
+    uint32_t count = header->handle_count;
+    XELOGD("NtClose({:08X}): close procedure {:08X}({:08X}, {})",
+           handle.value(), uint32_t(type->close_proc), body, count);
+    uint64_t args[] = {body, count};
+    ctx->processor->Execute(ctx->thread_state, type->close_proc, args, 2);
+    header->handle_count = count - 1;
+  }
+  return NtClose(handle);
+}
 DECLARE_XBOXKRNL_EXPORT1(NtClose, kNone, kImplemented);
 
 dword_result_t ObCreateObject_entry(
