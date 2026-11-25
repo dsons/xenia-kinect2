@@ -6,6 +6,33 @@
 
 <h1 align="center">Xenia Canary - Xbox 360 Emulator</h1>
 
+## Xenia with Kinect
+
+**This fork plays Xbox 360 Kinect games with a real Kinect on your PC:** a
+Kinect for Xbox 360 or a Kinect for Xbox One (Kinect for Windows v1 and v2
+work too). Please report Kinect issues to this fork, not to Xenia Canary.
+
+### Quick setup
+
+1. **Get the adapter for your Kinect.** A Kinect for Xbox 360 needs a *Kinect
+   power supply* (wall plug + USB). A Kinect for Xbox One needs the *Kinect
+   Adapter for Windows* and a USB 3.0 port.
+2. **Download** the latest `xenia-nui-...-windows-x64.zip` from Releases,
+   right-click it and choose **Extract All...**
+3. **Plug in** the adapter's power and its USB cable (straight into the PC).
+4. **Install the driver:** in the `kinect` folder, double-click
+   `Setup-Kinect.cmd` and click **Yes**. Only needed once.
+5. **Play:** start `xenia_canary.exe`, check the Kinect under
+   **HID > Kinect...**, then open your game with **File > Open...**
+
+The full guide, with troubleshooting, is
+[tools/kinect_release/README.txt](tools/kinect_release/README.txt) (included in
+the download as README.txt). How it works and how to build it:
+[docs/kinect.md](docs/kinect.md).
+
+
+## About Xenia Canary
+
 Xenia Canary is an experimental fork of the Xenia emulator. For more information, see the
 [Xenia Canary wiki](https://github.com/xenia-canary/xenia-canary/wiki).
 

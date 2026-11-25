@@ -1,0 +1,31 @@
+--- a/src/depth_packet_stream_parser.cpp
++++ b/src/depth_packet_stream_parser.cpp
+@@ -147,16 +147,22 @@
+ 
+         Buffer &fb = *packet_.memory;
+ 
+-        // set the bit corresponding to the subsequence number to 1
+-        current_subsequence_ |= 1 << footer->subsequence;
+-
+-        if(footer->subsequence * footer->length > fb.capacity)
++        // Check where the copy ends, not only where it starts: a corrupt
++        // footer with subsequence 10 starts exactly at capacity and would
++        // write a whole subpacket past the end of the buffer. The buffer and
++        // the mask both hold ten subpackets.
++        const size_t sub_begin = size_t(footer->subsequence) * size_t(footer->length);
++        if(footer->subsequence >= 10 || sub_begin + footer->length > fb.capacity)
+         {
+-          LOG_DEBUG << "front buffer too short! subsequence number is " << footer->subsequence;
++          LOG_ERROR << "depth subpacket out of range, dropped: subsequence " << footer->subsequence
++                    << " length " << footer->length << " ends at " << (sub_begin + footer->length)
++                    << " of " << fb.capacity;
+         }
+         else
+         {
+-          memcpy(fb.data + (footer->subsequence * footer->length), wb.data + (wb.length - footer->length), footer->length);
++          // set the bit corresponding to the subsequence number to 1
++          current_subsequence_ |= 1 << footer->subsequence;
++          memcpy(fb.data + sub_begin, wb.data + (wb.length - footer->length), footer->length);
+         }
+       }
+ 

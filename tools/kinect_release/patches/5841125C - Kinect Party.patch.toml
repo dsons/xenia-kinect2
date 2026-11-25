@@ -1,0 +1,105 @@
+title_name = "Kinect Party"
+title_id = "5841125C"
+hash = "33E8C9D0724F5404"  # default.xex (Xbox Live Arcade)
+
+# CollisionShape's field table (0x82D033A0, read by the in-place loader's
+# fix-up 0x82B2A8C0 through 0x82B2A7E8) is built lazily and not thread-safely:
+# 0x82B2A7E8 sets its guard bit (0x82DB8C24) before writing the entries, then
+# 0x82204870 selection-sorts the 4 entries in place, carrying the 0x7FFFFFFF
+# terminator from the front through slots 1 and 2. A second loader thread that
+# walks the table meanwhile stops at the terminator and never fixes up
+# m_terrainShape (+0xC), which keeps its serialized object index 1. The terrain
+# tile code (0x82B42050, 0x82B1D300) then calls through it: "Guest crash ...
+# pc 82B421F0 fault 0000000100000001" at boot. Under Xenia the first run of the
+# sort is JIT-compiled, so the window is milliseconds, not microseconds.
+# Write the table already built and sorted, and set the guard, so the lazy
+# init never runs. Values are the constants 0x82B2A814..0x82B2A880 store.
+[[patch]]
+    name = "CollisionShape field table prebuilt (thread-safe terrain loading)"
+    desc = "Kinect Party boot crash at 82B421F0"
+    author = "xenia-nui"
+    is_enabled = true
+
+    [[patch.be32]]
+        address = 0x82D033A0
+        value = 0x00000004
+
+    [[patch.be32]]
+        address = 0x82D033A4
+        value = 0x82179338
+
+    [[patch.be32]]
+        address = 0x82D033A8
+        value = 0x82D0067C
+
+    [[patch.be32]]
+        address = 0x82D033AC
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033B0
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033B4
+        value = 0x00000008
+
+    [[patch.be32]]
+        address = 0x82D033B8
+        value = 0x82179360
+
+    [[patch.be32]]
+        address = 0x82D033BC
+        value = 0x82D033F0
+
+    [[patch.be32]]
+        address = 0x82D033C0
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033C4
+        value = 0x82246450
+
+    [[patch.be32]]
+        address = 0x82D033C8
+        value = 0x0000000C
+
+    [[patch.be32]]
+        address = 0x82D033CC
+        value = 0x82179350
+
+    [[patch.be32]]
+        address = 0x82D033D0
+        value = 0x82D00A34
+
+    [[patch.be32]]
+        address = 0x82D033D4
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033D8
+        value = 0x82C05758
+
+    [[patch.be32]]
+        address = 0x82D033DC
+        value = 0x7FFFFFFF
+
+    [[patch.be32]]
+        address = 0x82D033E0
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033E4
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033E8
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82D033EC
+        value = 0x00000000
+
+    [[patch.be32]]
+        address = 0x82DB8C24
+        value = 0x00000001

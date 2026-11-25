@@ -1,0 +1,35 @@
+Third-party components in the kinect folder
+===========================================
+
+The source code of these components is available from the locations below.
+tools/kinect_runtime/build.ps1 in this project's repository rebuilds them,
+checking each download against a SHA-256 hash (libfreenect is cloned at the
+pinned commit, which Git verifies).
+
+libfreenect, commit 09a1f098040d00e6070c18174904547ec31d2774
+  https://github.com/OpenKinect/libfreenect
+  License: Apache License 2.0 (libfreenect-APACHE20.txt). freenect.dll is
+  unmodified.
+
+libfreenect2, commit fd64c5d9b214df6f6a55b4419357e51083f15d93
+  https://github.com/OpenKinect/libfreenect2
+  License: Apache License 2.0 (libfreenect2-APACHE20.txt)
+  Modified by the patches in libfreenect2-patches:
+    cpu_depth_packet_processor.patch   multi-threaded depth decoding
+    depth_packet_stream_parser.patch   bounds check for corrupt depth packets
+    libfreenect2.patch                 stop the sensor when WinUSB refuses an
+                                       interface change
+
+libusb 1.0.30
+  https://github.com/libusb/libusb/releases/tag/v1.0.30
+  License: GNU Lesser General Public License 2.1 (libusb-COPYING.txt).
+  Its source is included (libusb-1.0.30.tar.bz2). libusb-1.0.dll is the
+  unmodified release build and can be replaced with another build.
+
+libjpeg-turbo 3.2.0
+  https://github.com/libjpeg-turbo/libjpeg-turbo/releases/tag/3.2.0
+  License: IJG and BSD-style licenses (libjpeg-turbo-*.txt)
+
+Microsoft Visual C++ runtime (msvcp140.dll, vcruntime140.dll,
+vcruntime140_1.dll, vcomp140.dll)
+  Redistributable files of Microsoft Visual Studio 2022.

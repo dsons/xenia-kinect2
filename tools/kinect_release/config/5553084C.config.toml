@@ -1,0 +1,9 @@
+# Child of Eden (5553084C): settings for Kinect play.
+
+[GPU]
+readback_resolve = "full"
+readback_memexport = true
+texture_1d_wide_max_rows = 96
+
+[Kernel]
+allow_avatar_initialization = true

@@ -1,0 +1,32 @@
+--- a/src/libfreenect2.cpp
++++ b/src/libfreenect2.cpp
+@@ -1008,7 +1008,16 @@
+     ir_transfer_pool_.cancel();
+   }
+ 
+-  if (usb_control_.setIrInterfaceState(UsbControl::Disabled) != UsbControl::Success) return false;
++  // With Microsoft's WinUSB driver this alternate-setting change can fail
++  // with LIBUSB_ERROR_IO. Returning here would skip the commands below that
++  // actually stop the sensor, leaving it streaming with the IR projector on.
++  // Retry once, then continue regardless.
++  if (usb_control_.setIrInterfaceState(UsbControl::Disabled) != UsbControl::Success)
++  {
++    libfreenect2::this_thread::sleep_for(libfreenect2::chrono::milliseconds(100));
++    if (usb_control_.setIrInterfaceState(UsbControl::Disabled) != UsbControl::Success)
++      LOG_WARNING << "could not disable the IR interface; stopping the sensor anyway";
++  }
+ 
+   CommandTransaction::Result result;
+   if (!command_tx_.execute(SetModeEnabledWith0x00640064Command(nextCommandSeq()), result)) return false;
+@@ -1020,7 +1029,10 @@
+   if (!command_tx_.execute(SetModeEnabledCommand(nextCommandSeq()), result)) return false;
+   if (!command_tx_.execute(SetModeDisabledCommand(nextCommandSeq()), result)) return false;
+ 
+-  if (usb_control_.setVideoTransferFunctionState(UsbControl::Disabled) != UsbControl::Success) return false;
++  // The sensor has been stopped by now; a failure here must not leave the
++  // device marked as streaming.
++  if (usb_control_.setVideoTransferFunctionState(UsbControl::Disabled) != UsbControl::Success)
++    LOG_ERROR << "could not disable the video transfer function";
+ 
+   state_ = Open;
+   LOG_INFO << "stopped";

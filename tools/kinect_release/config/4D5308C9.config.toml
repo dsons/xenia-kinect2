@@ -1,0 +1,9 @@
+# Kinect Sports (4D5308C9): settings for Kinect play.
+
+[GPU]
+readback_resolve = "full"
+readback_memexport = true
+texture_1d_wide_max_rows = 96
+
+[Kernel]
+allow_avatar_initialization = true

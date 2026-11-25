@@ -1,0 +1,19 @@
+title_name = "Dance Central 3"
+title_id = "373307D9"
+hash = "6B15C22CA94CC2E1"  # default.xex
+
+# main() (0x82311A68) installs its game loop (0x82311A40 -> 0x82311338) as the
+# CRT's unhandled-exception filter, then writes to address 0 on purpose: on the
+# console the access violation reaches that filter and the whole game runs
+# inside it. Xenia has no guest exception dispatch and stops on the fault
+# ("Guest crash ... pc 82311A94 fault 0000000100000000"). Call the filter
+# directly instead of faulting into it.
+[[patch]]
+    name = "Run the game loop without the null-write exception"
+    desc = "stw r10,0(r0) at 82311A94 -> bl 0x82311A40"
+    author = "xenia-nui"
+    is_enabled = true
+
+    [[patch.be32]]
+        address = 0x82311A94
+        value = 0x4BFFFFAD
