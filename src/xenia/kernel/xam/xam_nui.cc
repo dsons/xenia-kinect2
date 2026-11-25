@@ -237,7 +237,13 @@ static void LogSkeletons(const uint8_t* b) {
     }
     std::fputc('\n', file);
   }
-  std::fflush(file);
+  // Written on the game's Kinect thread: flush about once a second, not every
+  // frame, so a slow disk cannot hold the game up.
+  static uint64_t last_flush_ms = 0;
+  if (ms - last_flush_ms >= 1000) {
+    last_flush_ms = ms;
+    std::fflush(file);
+  }
 }
 
 void XamNuiIdentityOnFrame(uint32_t buffer_ptr) {

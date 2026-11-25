@@ -10,6 +10,7 @@
 #ifndef XENIA_APP_EMULATOR_WINDOW_H_
 #define XENIA_APP_EMULATOR_WINDOW_H_
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -325,6 +326,7 @@ class EmulatorWindow {
   std::unique_ptr<DisplayConfigDialog> display_config_dialog_;
   std::unique_ptr<ConsoleSettingsDialog> console_settings_dialog_;
   std::unique_ptr<KinectDialog> kinect_dialog_;
+  std::chrono::steady_clock::time_point kinect_dialog_closed_at_;
   std::unique_ptr<ContentListDialog> content_list_dialog_;
   // Storing pointers and toggling dialog state is useful for broadcasting
   // messages back to guest.

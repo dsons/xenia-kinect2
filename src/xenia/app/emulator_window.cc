@@ -9,6 +9,8 @@
 
 #include "xenia/app/emulator_window.h"
 
+#include <thread>
+
 #include "third_party/imgui/imgui.h"
 #include "third_party/stb/stb_image_write.h"
 #if defined(__clang__)
@@ -283,14 +285,22 @@ void EmulatorWindow::OnEmulatorInitialized() {
   if (cvars::fullscreen) {
     SetFullscreen(true);
   }
-  // Kinect devices, drivers and settings, for problem reports.
-  kernel::xboxkrnl::LogKinectReport();
+  // Kinect devices, drivers and settings, for problem reports. Off the UI
+  // thread: listing devices and microphones can take a moment.
+  std::thread([]() { kernel::xboxkrnl::LogKinectReport(); }).detach();
   emulator_->on_kinect_ui_requested.AddListener([this]() {
     window_->app_context().CallInUIThread([this]() {
-      XELOGI("Kinect window: opened for the game's Kinect UI request");
-      if (!kinect_dialog_) {
-        ToggleKinectDialog();
+      if (kinect_dialog_) {
+        return;
       }
+      // Some games ask again and again while there is no Kinect: do not
+      // reopen the window right after the player closed it.
+      if (std::chrono::steady_clock::now() - kinect_dialog_closed_at_ <
+          std::chrono::seconds(30)) {
+        return;
+      }
+      XELOGI("Kinect window: opened for the game's Kinect UI request");
+      ToggleKinectDialog();
     });
   });
   // Started with a game (a shortcut or a game launcher): straight into it.
@@ -1733,6 +1743,7 @@ void EmulatorWindow::ToggleKinectDialog() {
   if (!kinect_dialog_) {
     kinect_dialog_ = std::make_unique<KinectDialog>(imgui_drawer_.get(), *this);
   } else {
+    kinect_dialog_closed_at_ = std::chrono::steady_clock::now();
     if (kinect_dialog_->IsClosing()) {
       kinect_dialog_.release();
     } else {
