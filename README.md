@@ -42,6 +42,16 @@ update itself. **For games that do not use Kinect, use the official
 [Xenia Canary](https://github.com/xenia-canary/xenia-canary)**: it is newer. Please
 report problems with Kinect games here, not to the Xenia Canary team.
 
+### Why a separate fork, not a pull request to Xenia Canary?
+
+Because of how it was made: most of the Kinect code in this fork was written
+with an AI assistant (Claude, by Anthropic) and tested on real Kinect sensors.
+Many open-source projects, emulators included, are wary of AI-written code, and
+reviewing a change this large would fall on Xenia's volunteer developers. So it
+is offered as its own fork instead of asking them to take it on. If the Xenia
+team or anyone else wants to bring parts of it into Xenia Canary, they are
+welcome to: it uses the same BSD license.
+
 ## Tested Kinect games
 
 These games start, find the Kinect and follow the player. Their settings are in
