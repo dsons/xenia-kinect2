@@ -640,27 +640,11 @@ dword_result_t XamShowNuiTroubleshooterUI_entry(dword_t user_index,
      XamShowNuiTroubleshooterUI(0xff,0,0) if param = -0x7ff8fffe
   */
 
-  if (cvars::headless) {
-    return 0;
+  // The Kinect window (HID > Kinect...) stands in for the system's Kinect
+  // Tuner: it shows what the Kinect sees and says what is wrong, if anything.
+  if (!cvars::headless) {
+    kernel_state()->emulator()->on_kinect_ui_requested();
   }
-
-  const Emulator* emulator = kernel_state()->emulator();
-  ui::Window* display_window = emulator->display_window();
-  ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();
-  if (display_window && imgui_drawer) {
-    xe::threading::Fence fence;
-    if (display_window->app_context().CallInUIThreadSynchronous([&]() {
-          xe::ui::ImGuiDialog::ShowMessageBox(
-              imgui_drawer, "NUI Troubleshooter",
-              "The game has indicated there is a problem with NUI (Kinect).")
-              ->Then(&fence);
-        })) {
-      kernel_state()->xam_state()->is_xam_dialog_present_.store(true);
-      fence.Wait();
-      kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
-    }
-  }
-
   return X_ERROR_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamShowNuiTroubleshooterUI, kNone, kStub);

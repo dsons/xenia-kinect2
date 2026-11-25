@@ -283,6 +283,14 @@ void EmulatorWindow::OnEmulatorInitialized() {
   }
   // Kinect devices, drivers and settings, for problem reports.
   kernel::xboxkrnl::LogKinectReport();
+  emulator_->on_kinect_ui_requested.AddListener([this]() {
+    window_->app_context().CallInUIThread([this]() {
+      XELOGI("Kinect window: opened for the game's Kinect UI request");
+      if (!kinect_dialog_) {
+        ToggleKinectDialog();
+      }
+    });
+  });
   if (cvars::nui_window_on_start && !kinect_dialog_) {
     ToggleKinectDialog();
   }

@@ -316,6 +316,9 @@ class Emulator {
   xe::Delegate<uint32_t, const std::string_view> on_launch;
   xe::Delegate<bool> on_shader_storage_initialization;
   xe::Delegate<> on_patch_apply;
+  // A game asked for the system's Kinect UI (Kinect Tuner, "Kinect
+  // required"); the app shows its Kinect window instead.
+  xe::Delegate<> on_kinect_ui_requested;
   xe::Delegate<> on_terminate;
   xe::Delegate<> on_exit;
 
