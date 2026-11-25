@@ -16,7 +16,7 @@ $root = (Resolve-Path (Join-Path $here '..\..')).Path
 if (-not $XeniaBin) { $XeniaBin = Join-Path $root 'build\bin\Windows\Release' }
 if (-not $KinectDir) { $KinectDir = Join-Path $root 'build\kinect' }
 if (-not $OutDir) { $OutDir = Join-Path $root 'build\release' }
-$name = "xenia-nui-$Version-windows-x64"
+$name = "xenia-kinect2-$Version-windows-x64"
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
 $dist = Join-Path $OutDir $name

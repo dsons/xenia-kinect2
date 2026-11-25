@@ -58,11 +58,17 @@ saved to the configuration file as they change.
 
 ## Building a release
 
-On Windows, with Visual Studio 2022 and Git:
+`Build-Xenia-Kinect2.cmd` (repository root) is the one-step build for players: run
+from an empty folder it clones this repository to `C:\xenia-kinect2-build`, builds
+it and copies the zip next to itself; run from a checkout it builds that
+checkout. It calls `tools/kinect_release/build-all.ps1`, which checks for Git,
+Python 3, Visual Studio 2022 or later with the C++ workload and the Vulkan SDK
+(offering to install missing ones with winget; `-NoInstall` turns that off),
+then runs:
 
 ```
 python xenia-build.py setup
-python xenia-build.py build --config=release
+python xenia-build.py build --config=release --target=xenia-app
 powershell -ExecutionPolicy Bypass -File tools\kinect_runtime\build.ps1
 powershell -ExecutionPolicy Bypass -File tools\kinect_release\package.ps1 -Version <version>
 ```
@@ -71,7 +77,13 @@ powershell -ExecutionPolicy Bypass -File tools\kinect_release\package.ps1 -Versi
 libjpeg-turbo (checked against SHA-256 hashes), applies
 `tools/kinect_runtime/patches` to libfreenect2 and builds the runtime into
 `build\kinect`. `package.ps1` writes
-`build\release\xenia-nui-<version>-windows-x64.zip`.
+`build\release\xenia-kinect2-<version>-windows-x64.zip`. The version is the tag on
+the commit (`v1.2.3` gives `1.2.3`), or `custom-<commit>`.
+
+The **Kinect release** GitHub Actions workflow (`.github/workflows/Kinect_release.yml`)
+runs the same script: started by hand it uploads the zip as an artifact, and a
+pushed `v*` tag also publishes a release with the zip, its checksum,
+`Build-Xenia-Kinect2.cmd` and `tools/kinect_release/RELEASE_NOTES.md`.
 
 ## Settings
 

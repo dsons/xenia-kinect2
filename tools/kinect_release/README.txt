@@ -7,6 +7,10 @@ This is the Xenia Canary Xbox 360 emulator with Kinect support added. It
 works with a Kinect for Xbox 360 or a Kinect for Xbox One. Games are not
 included: use your own copies.
 
+It is not the official Xenia Canary, which cannot use a Kinect. For games
+that do not use Kinect, the official Xenia Canary is newer and a better
+choice. Report problems with this version at github.com/dsons/xenia-kinect2.
+
 
 QUICK SETUP
 -----------
@@ -18,7 +22,8 @@ STEP 1. Check what you need
 
   [ ] A Windows 10 or Windows 11 PC (64-bit) with a graphics card that
       supports DirectX 12. Most gaming PCs and laptops from the last
-      eight years do.
+      eight years do. Update its driver first, from the NVIDIA, AMD or
+      Intel website.
 
   [ ] A Kinect, and the right power adapter for it:
 
@@ -63,6 +68,10 @@ STEP 4. Install the Kinect driver
 
   You only need to do this once. If you later plug the Kinect into a
   different USB port, do it again.
+
+  This is the only driver you need. It uses the WinUSB driver that is part
+  of Windows, so nothing is downloaded. You do not need the Kinect for
+  Windows SDK, the Kinect Runtime or Zadig.
 
 
 STEP 5. Test the Kinect and play
@@ -193,7 +202,9 @@ Xenia is released under the BSD license (LICENSE.txt). The kinect folder
 contains libfreenect and libfreenect2 (Apache License 2.0, with the changes
 listed in kinect\licenses\SOURCES.txt), libusb (GNU LGPL 2.1, source
 included), libjpeg-turbo (BSD-style licenses) and the Microsoft Visual C++
-runtime. See kinect\licenses.
+runtime. See kinect\licenses: SOURCES.txt there says where each file comes
+from. The Kinect driver is not included: it is the WinUSB driver that comes
+with Windows.
 
 This project is not affiliated with or endorsed by Microsoft. Xbox, Xbox
 360, Xbox One and Kinect are trademarks of Microsoft Corporation.

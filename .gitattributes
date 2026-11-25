@@ -1,6 +1,7 @@
 *           text=auto whitespace=blank-at-eol,tab-in-indent,trailing-space,tabwidth=2
 
 *.bat       text eol=crlf
+*.cmd       text eol=crlf
 *.sh        text eol=lf
 
 *.sln       text eol=crlf -whitespace

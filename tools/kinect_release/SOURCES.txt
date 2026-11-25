@@ -32,4 +32,4 @@ libjpeg-turbo 3.2.0
 
 Microsoft Visual C++ runtime (msvcp140.dll, vcruntime140.dll,
 vcruntime140_1.dll, vcomp140.dll)
-  Redistributable files of Microsoft Visual Studio 2022.
+  Redistributable files of Microsoft Visual Studio 2022 or later.

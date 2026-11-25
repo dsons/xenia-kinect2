@@ -6,8 +6,8 @@
 #   turbojpeg.dll       libjpeg-turbo 3.2.0
 #   vcomp140.dll and the Visual C++ runtime DLLs
 #
-# Requires Visual Studio 2022 (or its Build Tools) with the C++ workload and
-# Git. Downloads are checked against the SHA-256 hashes below; libfreenect is
+# Requires Visual Studio 2022 or later (or its Build Tools) with the C++
+# workload, and Git. Downloads are checked against the SHA-256 hashes below; libfreenect is
 # cloned at a pinned commit, which Git verifies.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\kinect_runtime\build.ps1
@@ -60,12 +60,14 @@ $vswhere = Join-Path $here '..\vswhere\vswhere.exe'
 if (-not (Test-Path $vswhere)) {
   $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 }
-$vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-if (-not $vs) { throw 'Visual Studio 2022 with the C++ workload was not found' }
+$vs = & $vswhere -latest -products * -version '[17,)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if (-not $vs) { throw 'Visual Studio 2022 or later with the C++ workload was not found' }
+$vsMajor = [int](& $vswhere -path $vs -property installationVersion).Split('.')[0]
+$vsYear = & $vswhere -path $vs -property catalog_productLineVersion
 $cmake = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
 if (-not (Test-Path $cmake)) { $cmake = (Get-Command cmake -ErrorAction Stop).Source }
 $git = (Get-Command git -ErrorAction Stop).Source
-$generator = @('-G', 'Visual Studio 17 2022', '-A', 'x64')
+$generator = @('-G', "Visual Studio $vsMajor $vsYear", '-A', 'x64')
 
 # Downloads.
 foreach ($dep in $deps) {
@@ -204,11 +206,13 @@ Copy-Item -Force "$prefix\bin\freenect2.dll" $OutDir
 Copy-Item -Force "$libusbDir\libusb-1.0.dll" $OutDir
 Copy-Item -Force "$jpeg\bin\turbojpeg.dll" $OutDir
 $redist = Get-ChildItem (Join-Path $vs 'VC\Redist\MSVC') -Directory |
-  Where-Object { Test-Path (Join-Path $_.FullName 'x64\Microsoft.VC143.CRT') } |
+  Where-Object { Get-ChildItem (Join-Path $_.FullName 'x64') -Directory -Filter 'Microsoft.VC14*.CRT' -ErrorAction SilentlyContinue } |
   Sort-Object Name | Select-Object -Last 1
 if (-not $redist) { throw 'Visual C++ redistributable files were not found' }
-foreach ($dir in 'x64\Microsoft.VC143.CRT', 'x64\Microsoft.VC143.OpenMP') {
-  Get-ChildItem (Join-Path $redist.FullName $dir) -Filter *.dll |
+$runtimeDirs = Get-ChildItem (Join-Path $redist.FullName 'x64') -Directory |
+  Where-Object { $_.Name -match '^Microsoft\.VC14\d\.(CRT|OpenMP)$' }
+foreach ($dir in $runtimeDirs) {
+  Get-ChildItem $dir.FullName -Filter *.dll |
     Where-Object { $_.Name -match '^(msvcp140|vcruntime140|vcruntime140_1|vcomp140)\.dll$' } |
     Copy-Item -Destination $OutDir -Force
 }
